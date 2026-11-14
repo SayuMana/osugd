@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import GDLog from "./GDLog.jsx";
+import Summary from "./Summary.jsx";
 import Tracks from "./Tracks.jsx";
 import { btnGhost, empty, emptyTitle, h1, muted } from "../ui.js";
 
@@ -27,7 +28,9 @@ export default function ProfilePage({ page }) {
 
   // lihat diri sendiri: langsung ke halaman aslinya, bukan tampilan tamu
   useEffect(() => {
-    if (data?.user?.is_self) navigate(page === "log" ? "/log" : "/track", { replace: true });
+    if (!data?.user?.is_self) return;
+    const target = page === "log" ? "/log" : page === "track" ? "/track" : "/summary";
+    navigate(target, { replace: true });
   }, [data, page, navigate]);
 
   if (error) {
@@ -63,8 +66,13 @@ export default function ProfilePage({ page }) {
     <>
       <div className={NAV_ROW}>
         <Link className={btnGhost} to={link("")}>
-          Summary
+          Overview
         </Link>
+        {page !== "summary" && data.summary_public && (
+          <Link className={btnGhost} to={link("/summary")}>
+            Summary
+          </Link>
+        )}
         {page !== "log" && data.log_public && (
           <Link className={btnGhost} to={link("/log")}>
             GD log
@@ -78,7 +86,9 @@ export default function ProfilePage({ page }) {
       </div>
 
       {/* me={null} bikin semua tombol owner hilang: add, edit, delete, bring back */}
-      {page === "log" ? <GDLog me={null} host={host} /> : <Tracks me={null} />}
+      {page === "summary" && <Summary me={null} nav={false} />}
+      {page === "log" && <GDLog me={null} host={host} />}
+      {page === "track" && <Tracks me={null} />}
     </>
   );
 }

@@ -256,6 +256,7 @@ export default function App() {
           />
           <Route path="/settings" element={<Settings me={me} />} />
           <Route path="/u/:osuId" element={<Profile me={me} />} />
+          <Route path="/u/:osuId/summary" element={<ProfilePage page="summary" />} />
           <Route path="/u/:osuId/log" element={<ProfilePage page="log" />} />
           <Route path="/u/:osuId/track" element={<ProfilePage page="track" />} />
           <Route path="*" element={<NotFound />} />

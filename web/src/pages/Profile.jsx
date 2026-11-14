@@ -103,7 +103,6 @@ export default function Profile({ me }) {
         )}
         <div>
           <h1 className={h1}>{name}</h1>
-          <p className={muted}>{user.role === "admin" ? "Owner" : "Requester"}</p>
         </div>
       </div>
 
@@ -127,6 +126,9 @@ export default function Profile({ me }) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2.5">
+        <Link className={btn} to={`/u/${encodeURIComponent(name)}/summary`}>
+          See the summary
+        </Link>
         <Link className={btn} to={`/u/${encodeURIComponent(name)}/log`}>
           See the GD log
         </Link>

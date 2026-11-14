@@ -81,7 +81,7 @@ function useWide() {
   return wide;
 }
 
-export default function Summary({ me }) {
+export default function Summary({ me, nav = true }) {
   const [entries, setEntries] = useState(null);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
@@ -219,14 +219,16 @@ export default function Summary({ me }) {
         {me?.role === "admin" && <CopyLink />}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2.5">
-        <Link className={btnGhost} to="/log">
-          GD log
-        </Link>
-        <Link className={btnGhost} to="/track">
-          GD track
-        </Link>
-      </div>
+      {nav && (
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <Link className={btnGhost} to="/log">
+            GD log
+          </Link>
+          <Link className={btnGhost} to="/track">
+            GD track
+          </Link>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <div className={`${empty} mt-4`}>
