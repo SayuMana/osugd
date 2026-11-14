@@ -221,30 +221,34 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const raw = String(req.params.osuId || "").trim().slice(0, 64);
   if (!raw) return res.status(400).json({ error: "Bad user id." });
 
-  const base = db.from("users").select("osu_id,username,avatar_url,role");
-  const { data: user } = /^\d+$/.test(raw)
-    ? await base.eq("osu_id", Number(raw)).maybeSingle()
-    : await base
-        .ilike("username", raw.replace(/[\%_]/g, (c) => `\${c}`))
-        .maybeSingle();
-  if (!user) return res.status(404).json({ error: "That user has not logged in here." });
-
-  const id = user.osu_id;
-
-  const isSelf = s?.osu_id === id;
-  const PAGE = 20;
-  const page = Math.max(0, Number(req.query.page) || 0);
-
-  const { data: settings } = await db
+  // dua query pertama jalan bareng, biar tidak bolak-balik ke database
+  const settingsP = db
     .from("user_settings")
     .select("gd_log_public")
     .eq("owner_id", ownerId)
     .maybeSingle();
+
+  const base = db.from("users").select("osu_id,username,avatar_url,role");
+  const userP = /^\d+$/.test(raw)
+    ? base.eq("osu_id", Number(raw)).maybeSingle()
+    : base.ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
+
+  const [{ data: user }, { data: settings }] = await Promise.all([userP, settingsP]);
+  if (!user) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const id = user.osu_id;
+  const isSelf = s?.osu_id === id;
+  const PAGE = 20;
+  const page = Math.max(0, Number(req.query.page) || 0);
   const logPublic = settings?.gd_log_public ?? true;
 
+  const statuses =
+    isSelf || isOwner
+      ? ["pending", "accepted", "in_progress", "done", "rejected", "on_hold"]
+      : ["pending", "accepted", "in_progress", "done"];
+
   // gd_entries cuma simpan nama host. Untuk owner, tampilkan seluruh log miliknya.
-  let gds = [];
-  let gdsTotal = 0;
+  let gdsP = Promise.resolve({ data: [], count: 0 });
   if (logPublic || isOwner) {
     let q = db
       .from("gd_entries")
@@ -255,25 +259,20 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
       .eq("owner_id", ownerId)
       .eq("is_archived", false);
     if (id !== ownerId) q = q.eq("host", user.username);
-    const { data, count } = await q
-      .order("gd_date", { ascending: false })
-      .range(page * PAGE, page * PAGE + PAGE - 1);
-    gds = data || [];
-    gdsTotal = count ?? 0;
+    gdsP = q.order("gd_date", { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
   }
 
-  const statuses =
-    isSelf || isOwner
-      ? ["pending", "accepted", "in_progress", "done", "rejected", "on_hold"]
-      : ["pending", "accepted", "in_progress", "done"];
-
-  const { data: reqs } = await db
+  const reqsP = db
     .from("requests")
     .select("id,beatmapset_id,artist,title,requested_diff,status,created_at")
     .eq("requester_id", id)
     .in("status", statuses)
     .order("created_at", { ascending: false })
     .limit(20);
+
+  const [{ data: gdsData, count }, { data: reqs }] = await Promise.all([gdsP, reqsP]);
+  const gds = gdsData || [];
+  const gdsTotal = count ?? 0;
 
   res.json({
     user: { ...user, is_self: isSelf },

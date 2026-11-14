@@ -56,7 +56,10 @@ export default function Profile() {
   // id angka dialihkan ke username biar link yang dibagikan kebaca
   useEffect(() => {
     const name = data?.user?.username;
-    if (name && osuId !== name) navigate(`/u/${encodeURIComponent(name)}`, { replace: true });
+    if (!name) return;
+    if (osuId.toLowerCase() !== name.toLowerCase()) {
+      navigate(`/u/${encodeURIComponent(name)}`, { replace: true });
+    }
   }, [data, osuId, navigate]);
 
   if (error) {

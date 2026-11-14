@@ -3,6 +3,7 @@
   "installCommand": "cd api && npm install && cd ../web && npm install",
   "buildCommand": "cd web && npm run build",
   "outputDirectory": "web/dist",
+  "regions": ["sin1"],
   "functions": {
     "api/server.js": {
       "maxDuration": 300
