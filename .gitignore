@@ -15,3 +15,7 @@ migrations/
 
 # vercel lokal
 .vercel
+
+.vercel
+.env*
+.env.local
