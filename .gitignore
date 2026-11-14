@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.DS_Store
+*.log
+
+# temp vite
+*.timestamp-*.mjs
+
+# dokumen internal, jangan ikut repo publik
+DESIGN.md
+schema.sql
+schema_v1.sql.bak
+migrations/

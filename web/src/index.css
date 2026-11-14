@@ -1,0 +1,285 @@
+@import "tailwindcss";
+
+@theme static {
+  --color-base: #1a1226;
+  --color-panel: #2a1b3d;
+  --color-panel2: #34224a;
+  --color-line: #3f2c57;
+  --color-strong: #8a6bb0;
+  --color-ink: #e8dff5;
+  --color-muted: #b9a9d0;
+  --color-accent: #f1aa00;
+  --color-accent-ink: #1a1226;
+  --color-good: #6ed39a;
+  --color-loved: #ff66aa;
+  --color-danger: #ff6b6b;
+  --color-reject: #ff8080;
+
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.4;
+  --text-13: 13px;
+  --text-13--line-height: 1.5;
+  --text-15: 15px;
+  --text-28: 28px;
+  --text-28--line-height: 1.2;
+}
+
+@layer base {
+  /* footer selalu di bawah walau halaman pendek */
+  #root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body {
+    @apply bg-base text-ink font-sans text-sm leading-normal antialiased;
+  }
+
+  a {
+    @apply text-ink;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* burger icon: three bars from one element */
+  .burger-lines,
+  .burger-lines::before,
+  .burger-lines::after {
+    display: block;
+    width: 14px;
+    height: 1.5px;
+    background: var(--color-ink);
+    content: "";
+    position: relative;
+  }
+
+  .burger-lines::before {
+    position: absolute;
+    top: -4px;
+  }
+
+  .burger-lines::after {
+    position: absolute;
+    top: 4px;
+  }
+
+  /* album art tint behind request rows */
+  .cover-tint {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover-tint::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--cover);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.12;
+    pointer-events: none;
+  }
+
+  .cover-tint > * {
+    position: relative;
+  }
+
+  /* middot between facts */
+  .dot-sep > span:not(:last-child)::after {
+    content: "·";
+    margin-left: 10px;
+    opacity: 0.6;
+  }
+
+  .year-tabs {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .year-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* summary grid: internal hairlines instead of gaps */
+  .cell-grid > *:nth-child(odd) {
+    border-right: 1px solid var(--color-line);
+  }
+
+  .cell-grid > *:nth-child(1),
+  .cell-grid > *:nth-child(2) {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  @media (max-width: 900px) {
+    .cell-grid > *:nth-child(odd) {
+      border-right: 0;
+    }
+
+    .cell-grid > *:not(:last-child) {
+      border-bottom: 1px solid var(--color-line);
+    }
+  }
+
+}
+
+/* Unlayered on purpose: these must beat the utility classes on the same cells. */
+.gd-table thead th {
+  position: sticky;
+  /* naik 2px + cat 2px di atasnya: menutup garis batas navbar dan celah subpiksel */
+  top: calc(var(--topbar-h, 61px) - 2px);
+  z-index: 5;
+  background: var(--color-panel2);
+  color: var(--color-ink);
+  box-shadow: 0 -2px 0 0 var(--color-panel2), inset 0 -1px 0 var(--color-strong);
+}
+
+/* zebra cuma dipakai kalau pembagian bulan dimatikan */
+.gd-table.zebra tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--color-panel2) 45%, transparent);
+}
+
+/* tanpa zebra: baris dipisah garis, jadi header dan bulan yang jadi penanda */
+.gd-table tr.month-row th {
+  background: color-mix(in srgb, var(--color-panel2) 40%, transparent);
+  color: var(--color-ink);
+}
+
+.gd-table tbody tr:hover td {
+    background: var(--color-panel2);
+  }
+
+  @media (max-width: 720px) {
+    /* kolom host: sekarang ke-4 karena kolom mode nambah di kiri */
+    .gd-table th:nth-child(4),
+    .gd-table td:nth-child(4) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .gd-table,
+    .gd-table tbody,
+    .gd-table tr,
+    .gd-table td {
+      display: block;
+    }
+
+    .gd-table thead {
+      display: none;
+    }
+
+    /* baris jadi block di mobile, jadi th bulan harus dipaksa selebar baris */
+    .gd-table tr.month-row th {
+      display: block;
+      width: 100%;
+    }
+
+    .gd-table tbody tr:not(.month-row) {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      grid-template-areas:
+        "mode map star"
+        "mode diff status"
+        "actions actions actions";
+      gap: 6px 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--color-line);
+    }
+
+    .gd-table tbody tr:not(.month-row):hover td {
+      background: transparent;
+    }
+
+    /* kartu sudah dipisah garis, zebra malah kelihatan tambal sulam */
+    .gd-table.zebra tbody tr:nth-child(even) td {
+      background: transparent;
+    }
+
+    .gd-table td {
+      border: 0;
+      padding: 0;
+      min-width: 0;
+    }
+
+    .gd-table td:nth-child(1) {
+      grid-area: mode;
+      align-self: center;
+    }
+
+    .gd-table td:nth-child(2) {
+      grid-area: map;
+    }
+
+    .gd-table td:nth-child(3) {
+      grid-area: diff;
+    }
+
+    .gd-table td:nth-child(5) {
+      grid-area: star;
+      text-align: right;
+      align-self: start;
+    }
+
+    .gd-table td:nth-child(5)::before {
+      content: "★ ";
+      color: var(--color-muted);
+    }
+
+    .gd-table td:nth-child(6) {
+      grid-area: status;
+      justify-self: end;
+    }
+
+    .gd-table td:nth-child(7) {
+      grid-area: actions;
+      justify-self: start;
+    }
+
+  .gd-table tr.month-row th {
+    padding: 12px 0;
+  }
+
+  .gd-table td:nth-child(3) span,
+  .gd-table td:nth-child(6) span {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: bottom;
+  }
+
+  .gd-table .map-title {
+    font-size: 14px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .gd-table .map-artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
