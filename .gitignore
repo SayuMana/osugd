@@ -12,3 +12,6 @@ DESIGN.md
 schema.sql
 schema_v1.sql.bak
 migrations/
+
+# vercel lokal
+.vercel
