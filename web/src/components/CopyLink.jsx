@@ -2,11 +2,11 @@ import { useState } from "react";
 import { btnGhost } from "../ui.js";
 
 // tombol salin link halaman; dipasang hanya di halaman yang memang publik
-export default function CopyLink() {
+export default function CopyLink({ to }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    const url = window.location.origin + window.location.pathname;
+    const url = window.location.origin + (to || window.location.pathname);
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

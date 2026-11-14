@@ -335,7 +335,7 @@ export default function Tracks({ me }) {
                 : `${total} ${total === 1 ? "map" : "maps"} on the board. Done maps move to the log.`}
           </p>
         </div>
-        {me?.role === "admin" && tracks !== null && !isPrivate(error) && <CopyLink />}
+        {me?.role === "admin" && tracks !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/track`} />}
       </div>
 
       <div className="mt-4 mb-4 flex gap-2">

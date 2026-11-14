@@ -301,7 +301,7 @@ export default function GDLog({ me, host }) {
               : `${entries.length} GDs · ${new Set(entries.map((e) => e.host)).size} mappers`}
           </p>
         </div>
-        {me?.role === "admin" && entries !== null && !isPrivate(error) && <CopyLink />}
+        {me?.role === "admin" && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
       </div>
 
       {years.length > 0 && (
