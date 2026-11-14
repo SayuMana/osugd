@@ -309,7 +309,7 @@ export default function Requests({ me }) {
                         <span>{r.requested_diff}</span>
                         <span>
                           from{" "}
-                          <Link className="text-muted underline decoration-line underline-offset-2 hover:text-accent" to={`/u/${r.requester_id}`}>
+                          <Link className="text-muted underline decoration-line underline-offset-2 hover:text-accent" to={`/u/${encodeURIComponent(r.requester && r.requester !== "someone" ? r.requester : r.requester_id)}`}>
                             {r.requester}
                           </Link>
                         </span>

@@ -217,15 +217,19 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const s = readSession(req);
   const isOwner = s && s.role === "admin";
   const ownerId = OWNER_ID || (isOwner ? s.osu_id : 0);
-  const id = Number(req.params.osuId);
-  if (!Number.isFinite(id)) return res.status(400).json({ error: "Bad user id." });
+  // terima osu id maupun username, biar link bisa dibaca (/u/sayumana)
+  const raw = String(req.params.osuId || "").trim().slice(0, 64);
+  if (!raw) return res.status(400).json({ error: "Bad user id." });
 
-  const { data: user } = await db
-    .from("users")
-    .select("osu_id,username,avatar_url,role")
-    .eq("osu_id", id)
-    .maybeSingle();
+  const base = db.from("users").select("osu_id,username,avatar_url,role");
+  const { data: user } = /^\d+$/.test(raw)
+    ? await base.eq("osu_id", Number(raw)).maybeSingle()
+    : await base
+        .ilike("username", raw.replace(/[\%_]/g, (c) => `\${c}`))
+        .maybeSingle();
   if (!user) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const id = user.osu_id;
 
   const isSelf = s?.osu_id === id;
   const PAGE = 20;

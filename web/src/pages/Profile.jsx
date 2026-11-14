@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { btnGhost, empty, emptyTitle, h1, muted, panel, panelH2, statusChip } from "../ui.js";
 import { REQUESTS_ON } from "../lib/features.js";
 
@@ -32,6 +32,7 @@ function Row({ href, title, sub, status, right }) {
 
 export default function Profile() {
   const { osuId } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
@@ -51,6 +52,12 @@ export default function Profile() {
       })
       .catch((e) => setError(e.message));
   }, [osuId, page]);
+
+  // id angka dialihkan ke username biar link yang dibagikan kebaca
+  useEffect(() => {
+    const name = data?.user?.username;
+    if (name && osuId !== name) navigate(`/u/${encodeURIComponent(name)}`, { replace: true });
+  }, [data, osuId, navigate]);
 
   if (error) {
     return (
