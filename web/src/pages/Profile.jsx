@@ -20,6 +20,7 @@ export default function Profile({ me }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [entries, setEntries] = useState(null);
+  const [logPublic, setLogPublic] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function Profile({ me }) {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "Couldn't load this profile.");
         setUser(j.user);
+        setLogPublic(!!j.log_public);
         if (!j.log_public) return setEntries([]);
 
         const g = await fetch("/api/gd");
@@ -137,7 +139,9 @@ export default function Profile({ me }) {
       <section className={`${panel} mt-4`}>
         <h2 className={panelH2}>Recent GDs</h2>
         {total === 0 ? (
-          <p className={muted}>Nothing in the log for this name yet.</p>
+          <p className={muted}>
+            {logPublic ? "Nothing in the log for this name yet." : "The GD log is private right now."}
+          </p>
         ) : (
           <ul className="m-0 list-none p-0">
             {recent.map((e) => (

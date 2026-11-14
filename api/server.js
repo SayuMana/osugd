@@ -285,6 +285,8 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
     gds_total: gdsTotal,
     requests: reqs || [],
     log_public: logPublic,
+    track_public: settings?.gd_track_public !== false,
+    summary_public: settings?.summary_public !== false,
     page,
     page_size: PAGE,
   });

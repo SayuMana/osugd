@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TAB, TAB_OFF, TAB_ON, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, isPrivate, muted, panelH2 } from "../ui.js";
+import { Link } from "react-router-dom";
 import CopyLink from "../components/CopyLink.jsx";
 import ModeIcon from "../components/ModeIcon.jsx";
 import { MODES, modeKey } from "../lib/mode.js";
@@ -216,6 +217,15 @@ export default function Summary({ me }) {
           </p>
         </div>
         {me?.role === "admin" && <CopyLink />}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2.5">
+        <Link className={btnGhost} to="/log">
+          GD log
+        </Link>
+        <Link className={btnGhost} to="/track">
+          GD track
+        </Link>
       </div>
 
       {filtered.length === 0 ? (
