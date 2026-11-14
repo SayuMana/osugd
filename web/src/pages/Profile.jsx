@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { btn, btnGhost, empty, emptyTitle, h1, muted, panel, panelH2, statusChip } from "../ui.js";
 import ModeIcon from "../components/ModeIcon.jsx";
+import CopyLink from "../components/CopyLink.jsx";
 
 const TILE = "min-w-0 p-3.5";
 const NUM = "block font-mono text-xl font-medium leading-tight";
@@ -14,7 +15,7 @@ function shortDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function Profile() {
+export default function Profile({ me }) {
   const { osuId } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -130,6 +131,7 @@ export default function Profile() {
         <Link className={btnGhost} to={`/u/${encodeURIComponent(name)}/track`}>
           See the track board
         </Link>
+        {me?.role === "admin" && <CopyLink />}
       </div>
 
       <section className={`${panel} mt-4`}>

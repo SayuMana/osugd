@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import ModeIcon from "../components/ModeIcon.jsx";
 import { useDialog } from "../lib/useDialog.js";
 import Status from "../components/Status.jsx";
+import CopyLink from "../components/CopyLink.jsx";
 import { TAB, TAB_OFF, TAB_ON, btn, btnGhost, chip, empty, emptyTitle, h1, isPrivate, input, inputFit, muted, panel, panelH2, statusChip } from "../ui.js";
 import { REQUESTS_ON } from "../lib/features.js";
 
@@ -323,15 +324,18 @@ export default function Tracks({ me }) {
 
   return (
     <>
-      <div>
-        <h1 className={h1}>GD track</h1>
-        <p className={muted}>
-          {!tracks
-            ? "Loading."
-            : tab === "history"
-              ? `${total} finished ${total === 1 ? "map" : "maps"}.`
-              : `${total} ${total === 1 ? "map" : "maps"} on the board. Done maps move to the log.`}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className={h1}>GD track</h1>
+          <p className={muted}>
+            {!tracks
+              ? "Loading."
+              : tab === "history"
+                ? `${total} finished ${total === 1 ? "map" : "maps"}.`
+                : `${total} ${total === 1 ? "map" : "maps"} on the board. Done maps move to the log.`}
+          </p>
+        </div>
+        {me?.role === "admin" && tracks !== null && !isPrivate(error) && <CopyLink />}
       </div>
 
       <div className="mt-4 mb-4 flex gap-2">

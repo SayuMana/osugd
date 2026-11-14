@@ -4,6 +4,7 @@ import { useDialog } from "../lib/useDialog.js";
 import Status from "../components/Status.jsx";
 import { TAB, TAB_OFF, TAB_ON, btn, btnDanger, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, isPrivate, input, muted, statusChip } from "../ui.js";
 import ModeIcon from "../components/ModeIcon.jsx";
+import CopyLink from "../components/CopyLink.jsx";
 import { MODES, modeKey, modeRank } from "../lib/mode.js";
 
 const cover = (id) => `https://assets.ppy.sh/beatmaps/${id}/covers/list.jpg`;
@@ -289,15 +290,18 @@ export default function GDLog({ me, host }) {
 
   return (
     <>
-      <div>
-        <h1 className={h1}>Guest difficulties</h1>
-        <p className={muted}>
-          {isPrivate(error)
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className={h1}>Guest difficulties</h1>
+          <p className={muted}>
+            {isPrivate(error)
             ? ""
             : entries === null
               ? "Loading."
               : `${entries.length} GDs · ${new Set(entries.map((e) => e.host)).size} mappers`}
-        </p>
+          </p>
+        </div>
+        {me?.role === "admin" && entries !== null && !isPrivate(error) && <CopyLink />}
       </div>
 
       {years.length > 0 && (

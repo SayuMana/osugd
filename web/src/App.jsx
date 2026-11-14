@@ -244,7 +244,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={me ? <Dashboard me={me} /> : <Landing />} />
           <Route path="/log" element={<GDLog me={me} />} />
-          <Route path="/summary" element={<Summary />} />
+          <Route path="/summary" element={<Summary me={me} />} />
           <Route path="/track" element={<Tracks me={me} />} />
           <Route
             path="/requests"
@@ -255,7 +255,7 @@ export default function App() {
             element={REQUESTS_ON ? <Request me={me} /> : <NotFound />}
           />
           <Route path="/settings" element={<Settings me={me} />} />
-          <Route path="/u/:osuId" element={<Profile />} />
+          <Route path="/u/:osuId" element={<Profile me={me} />} />
           <Route path="/u/:osuId/log" element={<ProfilePage page="log" />} />
           <Route path="/u/:osuId/track" element={<ProfilePage page="track" />} />
           <Route path="*" element={<NotFound />} />

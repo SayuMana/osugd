@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { TAB, TAB_OFF, TAB_ON, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, isPrivate, muted, panelH2 } from "../ui.js";
+import CopyLink from "../components/CopyLink.jsx";
 import ModeIcon from "../components/ModeIcon.jsx";
 import { MODES, modeKey } from "../lib/mode.js";
 
@@ -79,7 +80,7 @@ function useWide() {
   return wide;
 }
 
-export default function Summary() {
+export default function Summary({ me }) {
   const [entries, setEntries] = useState(null);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
@@ -206,12 +207,15 @@ export default function Summary() {
 
   return (
     <>
-      <div>
-        <h1 className={h1}>Summary</h1>
-        <p className={muted}>
-          {filtered.length} GDs · {mapperCount} mappers · {avg.toFixed(2)}★ average
-          {years.length > 1 ? ` · ${years[0]} to ${years[years.length - 1]}` : ""}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className={h1}>Summary</h1>
+          <p className={muted}>
+            {filtered.length} GDs · {mapperCount} mappers · {avg.toFixed(2)}★ average
+            {years.length > 1 ? ` · ${years[0]} to ${years[years.length - 1]}` : ""}
+          </p>
+        </div>
+        {me?.role === "admin" && <CopyLink />}
       </div>
 
       {filtered.length === 0 ? (
