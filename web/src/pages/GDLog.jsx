@@ -77,7 +77,7 @@ function groupByMonth(entries, dir, cmp) {
   return groups;
 }
 
-export default function GDLog({ me }) {
+export default function GDLog({ me, host }) {
   const [entries, setEntries] = useState(null);
   const [year, setYear] = useState(null);
   const [dir, setDir] = useState("desc");
@@ -113,14 +113,14 @@ export default function GDLog({ me }) {
       setEntries([]);
       return;
     }
-    setEntries(j.entries);
+    setEntries(host ? (j.entries || []).filter((e) => e.host === host) : j.entries);
 
     if (!defaultsApplied.current && j.defaults) {
       defaultsApplied.current = true;
       if (j.defaults.mode) setActiveMode(j.defaults.mode);
       if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
     }
-  }, [showArchived]);
+  }, [showArchived, host]);
 
   const runImport = useCallback(
     async (startOffset = 0) => {

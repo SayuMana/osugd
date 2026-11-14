@@ -9,6 +9,7 @@ const TOGGLES = [
   ["gd_log_public", "GD log is public", "Turn off to hide the whole log from visitors."],
   ["gd_track_public", "GD track is public", "Turn off to hide work in progress."],
   ["summary_public", "Summary is public", "Turn off to hide the stats page."],
+  ["profile_public", "Profile is public", "Turn off to hide /u/ pages from visitors."],
   ["sync_enabled", "Daily status sync", "Refresh map status from osu automatically."],
 ];
 

@@ -224,7 +224,7 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   // dua query pertama jalan bareng, biar tidak bolak-balik ke database
   const settingsP = db
     .from("user_settings")
-    .select("gd_log_public")
+    .select("*")
     .eq("owner_id", ownerId)
     .maybeSingle();
 
@@ -241,6 +241,11 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const PAGE = 20;
   const page = Math.max(0, Number(req.query.page) || 0);
   const logPublic = settings?.gd_log_public ?? true;
+
+  // profil bisa disembunyikan dari orang lain
+  if (settings?.profile_public === false && !isOwner) {
+    return res.status(403).json({ error: "This profile is private." });
+  }
 
   const statuses =
     isSelf || isOwner
@@ -578,7 +583,7 @@ app.get("/api/settings", async (req, res) => {
   res.json(created);
 });
 
-const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "queue_open", "sync_enabled"];
+const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "profile_public", "queue_open", "sync_enabled"];
 
 app.patch("/api/settings", async (req, res) => {
   const s = readSession(req);

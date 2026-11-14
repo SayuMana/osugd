@@ -1,66 +1,55 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { btnGhost, empty, emptyTitle, h1, muted, panel, panelH2, statusChip } from "../ui.js";
-import { REQUESTS_ON } from "../lib/features.js";
+import { btn, btnGhost, empty, emptyTitle, h1, muted, panel, panelH2, statusChip } from "../ui.js";
+import ModeIcon from "../components/ModeIcon.jsx";
 
-const PAGE = 20;
-const cover = (id) => `https://assets.ppy.sh/beatmaps/${id}/covers/list.jpg`;
-const ROW = "flex flex-col gap-1.5 border-b border-line py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3";
+const TILE = "min-w-0 p-3.5";
+const NUM = "block font-mono text-xl font-medium leading-tight";
+const LABEL = "block text-xs text-muted";
+const ROW =
+  "flex flex-col gap-1 border-b border-line py-2.5 last:border-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3";
 
 function shortDate(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function Row({ href, title, sub, status, right }) {
-  return (
-    <li className={ROW}>
-      <div className="flex min-w-0 items-center gap-2.5">
-        {href && <img className="h-10 w-10 flex-none rounded object-cover bg-panel2" src={cover(href)} alt="" width="40" height="40" loading="lazy" />}
-        <div className="min-w-0">
-          <span className="block truncate">{title}</span>
-          <span className="block text-xs text-muted">{sub}</span>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {right}
-        {status}
-      </div>
-    </li>
-  );
-}
-
 export default function Profile() {
   const { osuId } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [user, setUser] = useState(null);
+  const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(0);
 
   useEffect(() => {
-    setPage(0);
-  }, [osuId]);
-
-  useEffect(() => {
-    setData(null);
+    setUser(null);
+    setEntries(null);
     setError(null);
-    fetch(`/api/users/${encodeURIComponent(osuId)}?page=${page}`)
+
+    fetch(`/api/users/${encodeURIComponent(osuId)}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "Couldn't load this profile.");
-        setData(j);
+        setUser(j.user);
+        if (!j.log_public) return setEntries([]);
+
+        const g = await fetch("/api/gd");
+        const gj = await g.json();
+        if (!g.ok) return setEntries([]);
+        // log milik owner: semuanya. profil orang lain: GD yang dibuat untuk mereka.
+        const all = gj.entries || [];
+        setEntries(j.user.role === "admin" ? all : all.filter((e) => e.host === j.user.username));
       })
       .catch((e) => setError(e.message));
-  }, [osuId, page]);
+  }, [osuId]);
 
   // id angka dialihkan ke username biar link yang dibagikan kebaca
   useEffect(() => {
-    const name = data?.user?.username;
-    if (!name) return;
-    if (osuId.toLowerCase() !== name.toLowerCase()) {
-      navigate(`/u/${encodeURIComponent(name)}`, { replace: true });
+    if (!user?.username) return;
+    if (osuId.toLowerCase() !== user.username.toLowerCase()) {
+      navigate(`/u/${encodeURIComponent(user.username)}`, { replace: true });
     }
-  }, [data, osuId, navigate]);
+  }, [user, osuId, navigate]);
 
   if (error) {
     return (
@@ -70,15 +59,12 @@ export default function Profile() {
         </div>
         <div className={empty}>
           <p className={emptyTitle}>{error}</p>
-          <p className={muted}>
-            <Link to="/log">Back to the GD log</Link>
-          </p>
         </div>
       </>
     );
   }
 
-  if (!data) {
+  if (!user || entries === null) {
     return (
       <>
         <div>
@@ -89,90 +75,94 @@ export default function Profile() {
     );
   }
 
-  const { user, gds, requests } = data;
-  const isOwnerProfile = user.role === "admin";
-  const roleLabel = isOwnerProfile ? "Owner" : "Requester";
+  const name = user.username;
+  const month = new Date().toISOString().slice(0, 7);
+  const total = entries.length;
+  const ranked = entries.filter((e) => e.map_status === "ranked").length;
+  const thisMonth = entries.filter((e) => String(e.gd_date || "").startsWith(month)).length;
+  const stars = entries.map((e) => Number(e.star_rating)).filter((n) => Number.isFinite(n) && n > 0);
+  const avg = stars.length ? (stars.reduce((a, b) => a + b, 0) / stars.length).toFixed(2) : null;
+  const recent = [...entries]
+    .sort((a, b) => String(b.gd_date || "").localeCompare(String(a.gd_date || "")))
+    .slice(0, 5);
 
   return (
     <>
       <div className="flex items-center gap-3">
         {user.avatar_url && (
-          <img className="h-10 w-10 flex-none rounded object-cover bg-panel2" src={user.avatar_url} alt="" width="40" height="40" />
+          <img
+            className="h-10 w-10 flex-none rounded bg-panel2 object-cover"
+            src={user.avatar_url}
+            alt=""
+            width="40"
+            height="40"
+          />
         )}
         <div>
-          <h1 className={h1}>{user.username}</h1>
-          <p className={muted}>
-            {roleLabel} ·{" "}
-            {data.log_public ? `${data.gds_total} GDs${isOwnerProfile ? "" : " mapped for them"}` : "GD log private"} ·{" "}
-            {requests.length} requests
-          </p>
+          <h1 className={h1}>{name}</h1>
+          <p className={muted}>{user.role === "admin" ? "Owner" : "Requester"}</p>
         </div>
       </div>
 
+      <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-panel sm:grid-cols-4 sm:divide-x sm:divide-line">
+        <div className={TILE}>
+          <span className={NUM}>{total}</span>
+          <span className={LABEL}>guest difficulties</span>
+        </div>
+        <div className={TILE}>
+          <span className={NUM}>{ranked}</span>
+          <span className={LABEL}>ranked</span>
+        </div>
+        <div className={TILE}>
+          <span className={NUM}>+{thisMonth}</span>
+          <span className={LABEL}>this month</span>
+        </div>
+        <div className={TILE}>
+          <span className={NUM}>{avg ?? "n/a"}</span>
+          <span className={LABEL}>average star</span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2.5">
+        <Link className={btn} to={`/u/${encodeURIComponent(name)}/log`}>
+          See the GD log
+        </Link>
+        <Link className={btnGhost} to={`/u/${encodeURIComponent(name)}/track`}>
+          See the track board
+        </Link>
+      </div>
+
       <section className={`${panel} mt-4`}>
-        <h2 className={panelH2}>{isOwnerProfile ? "GD log" : `GDs mapped for ${user.username}`}</h2>
-        {!data.log_public && gds.length === 0 ? (
-          <p className={muted}>The GD log is private right now.</p>
-        ) : gds.length === 0 ? (
-          <p className={muted}>No GDs mapped for this mapper yet.</p>
+        <h2 className={panelH2}>Recent GDs</h2>
+        {total === 0 ? (
+          <p className={muted}>Nothing in the log for this name yet.</p>
         ) : (
           <ul className="m-0 list-none p-0">
-            {gds.map((e) => (
-              <Row
-                key={e.id}
-                href={e.beatmapset_id}
-                title={e.title}
-                sub={`${e.artist} · ${e.diff_name}`}
-                right={
-                  <>
-                    <span className="font-mono text-xs text-muted">
-                      {e.star_rating != null ? Number(e.star_rating).toFixed(2) : "n/a"}
+            {recent.map((e) => (
+              <li className={ROW} key={e.id}>
+                <span className="flex min-w-0 items-center gap-2">
+                  <ModeIcon mode={e.game_mode} />
+                  <a
+                    className="min-w-0 text-ink no-underline hover:text-accent"
+                    href={`https://osu.ppy.sh/beatmapsets/${e.beatmapset_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="block truncate">{e.title}</span>
+                    <span className="block text-xs text-muted">
+                      {e.artist} · {e.diff_name}
                     </span>
-                    <span className="font-mono text-xs text-muted">{shortDate(e.gd_date)}</span>
-                  </>
-                }
-                status={<span className={statusChip(e.map_status)}>{e.map_status}</span>}
-              />
+                  </a>
+                </span>
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-muted">{shortDate(e.gd_date)}</span>
+                  <span className={statusChip(e.map_status)}>{e.map_status}</span>
+                </span>
+              </li>
             ))}
           </ul>
         )}
       </section>
-
-      {data.gds_total > PAGE && (
-        <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="GD pages">
-          <button className={btnGhost} disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-            Previous
-          </button>
-          <span className={muted}>
-            Page {page + 1} of {Math.ceil(data.gds_total / PAGE)}
-          </span>
-          <button className={btnGhost} disabled={(page + 1) * PAGE >= data.gds_total} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </button>
-        </nav>
-      )}
-
-      {REQUESTS_ON && (
-      <section className={`${panel} mt-4`}>
-        <h2 className={panelH2}>Requests</h2>
-        {requests.length === 0 ? (
-          <p className={muted}>No requests yet.</p>
-        ) : (
-          <ul className="m-0 list-none p-0">
-            {requests.map((r) => (
-              <Row
-                key={r.id}
-                href={r.beatmapset_id}
-                title={r.title}
-                sub={`${r.artist} · wants ${r.requested_diff}`}
-                right={<span className="font-mono text-xs text-muted">{shortDate(r.created_at)}</span>}
-                status={<span className={statusChip(r.status)}>{r.status.replace("_", " ")}</span>}
-              />
-            ))}
-          </ul>
-        )}
-      </section>
-      )}
     </>
   );
 }

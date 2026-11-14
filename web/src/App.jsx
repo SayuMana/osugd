@@ -11,6 +11,7 @@ import Requests from "./pages/Requests.jsx";
 import Tracks from "./pages/Tracks.jsx";
 import Summary from "./pages/Summary.jsx";
 import Profile from "./pages/Profile.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import Footer from "./components/Footer.jsx";
 
@@ -153,15 +154,13 @@ export default function App() {
                   </svg>
                 </NavLink>
               )}
-              <a
+              <Link
                 className="flex items-center gap-2.5 text-muted underline decoration-line underline-offset-2 hover:text-accent hover:decoration-accent"
-                href={`https://osu.ppy.sh/users/${me.osu_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                to={`/u/${encodeURIComponent(me.username)}`}
               >
                 <img className="block rounded" src={me.avatar} alt="" width="28" height="28" />
                 {me.username}
-              </a>
+              </Link>
               <button className={BTN_GHOST} onClick={logout}>
                 Log out
               </button>
@@ -207,14 +206,12 @@ export default function App() {
             <div className="mt-auto flex flex-col items-start gap-2.5">
               {me ? (
                 <>
-                  <a
+                  <Link
                     className="text-13 text-muted underline decoration-line underline-offset-2 hover:text-accent hover:decoration-accent"
-                    href={`https://osu.ppy.sh/users/${me.osu_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    to={`/u/${encodeURIComponent(me.username)}`}
                   >
                     Logged in as {me.username}
-                  </a>
+                  </Link>
                   {isAdmin && (
                     <NavLink className={DRAWER_LINK} to="/settings">
                       Settings
@@ -259,6 +256,8 @@ export default function App() {
           />
           <Route path="/settings" element={<Settings me={me} />} />
           <Route path="/u/:osuId" element={<Profile />} />
+          <Route path="/u/:osuId/log" element={<ProfilePage page="log" />} />
+          <Route path="/u/:osuId/track" element={<ProfilePage page="track" />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
