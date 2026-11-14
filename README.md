@@ -19,43 +19,6 @@ Only the owner can write. Everyone else gets read access, and only to the parts 
 - Web: React, Vite, Tailwind v4
 - Deploy: Vercel, with a daily cron that refreshes map status from osu
 
-## Run locally
-
-Two terminals.
-
-API:
-
-```bash
-cd api
-cp .env.example .env   # fill in the values
-npm install
-npm run dev
-```
-
-Web:
-
-```bash
-cd web
-npm install
-npm run dev
-```
-
-Open http://localhost:5173. The dev server proxies `/api` to port 3001, so the API has to run first.
-
-## Environment
-
-| Variable | What it is |
-| --- | --- |
-| `WEB_ORIGIN` | Where the browser app lives. Login redirects back here. |
-| `OSU_CLIENT_ID`, `OSU_CLIENT_SECRET` | Credentials from your osu! OAuth app. |
-| `OSU_REDIRECT_URI` | Must match the redirect URI registered on the osu! app. |
-| `SESSION_SECRET` | Signs the session cookie. Changing it logs everyone out. |
-| `OWNER_OSU_ID` | The osu! account that owns the log. |
-| `ADMIN_OSU_IDS` | Comma separated osu! ids allowed to write. |
-| `CRON_SECRET` | Bearer token for `/api/cron/sync`. Leave it empty and that endpoint returns 404. |
-| `REQUESTS_ENABLED` | The request queue is off in production unless this is `1`. |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | Supabase project and service key. Server side only. |
-
 ## Credit
 
 Built by [SayuMana](https://osu.ppy.sh/users/12602650).
