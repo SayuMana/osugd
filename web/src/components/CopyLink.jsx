@@ -18,7 +18,7 @@ export default function CopyLink({ to }) {
 
   return (
     <button type="button" className={btnGhost} onClick={copy}>
-      {copied ? "Link copied" : "Copy link"}
+      {copied ? "Link copied" : "Copy link to share"}
     </button>
   );
 }
