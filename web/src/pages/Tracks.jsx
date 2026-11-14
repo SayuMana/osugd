@@ -4,7 +4,7 @@ import ModeIcon from "../components/ModeIcon.jsx";
 import { useDialog } from "../lib/useDialog.js";
 import Status from "../components/Status.jsx";
 import CopyLink from "../components/CopyLink.jsx";
-import { TAB, TAB_OFF, TAB_ON, btn, btnGhost, chip, empty, emptyTitle, h1, isPrivate, input, inputFit, muted, panel, panelH2, statusChip } from "../ui.js";
+import { TAB, TAB_OFF, TAB_ON, btn, btnGhost, chip, empty, emptyTitle, h1, possessive, isPrivate, input, inputFit, muted, panel, panelH2, statusChip } from "../ui.js";
 import { REQUESTS_ON } from "../lib/features.js";
 
 const PAGE = 20;
@@ -54,7 +54,7 @@ function Cover({ id }) {
   );
 }
 
-export default function Tracks({ me }) {
+export default function Tracks({ me, owner }) {
   const [tracks, setTracks] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -208,7 +208,7 @@ export default function Tracks({ me }) {
     return (
       <>
         <div>
-          <h1 className={h1}>GD track</h1>
+          <h1 className={h1}>{owner ? `${possessive(owner)} GD track` : "GD track"}</h1>
         </div>
         <div className={empty}>
           <p className={emptyTitle}>{error}</p>
@@ -326,7 +326,7 @@ export default function Tracks({ me }) {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className={h1}>GD track</h1>
+          <h1 className={h1}>{owner ? `${possessive(owner)} GD track` : "GD track"}</h1>
           <p className={muted}>
             {!tracks
               ? "Loading."

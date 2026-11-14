@@ -86,9 +86,9 @@ export default function ProfilePage({ page }) {
       </div>
 
       {/* me={null} bikin semua tombol owner hilang: add, edit, delete, bring back */}
-      {page === "summary" && <Summary me={null} nav={false} />}
-      {page === "log" && <GDLog me={null} host={host} />}
-      {page === "track" && <Tracks me={null} />}
+      {page === "summary" && <Summary me={null} nav={false} owner={name} />}
+      {page === "log" && <GDLog me={null} host={host} owner={name} />}
+      {page === "track" && <Tracks me={null} owner={name} />}
     </>
   );
 }

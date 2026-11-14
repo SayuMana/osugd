@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TAB, TAB_OFF, TAB_ON, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, isPrivate, muted, panelH2 } from "../ui.js";
+import { TAB, TAB_OFF, TAB_ON, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, possessive, isPrivate, muted, panelH2 } from "../ui.js";
 import { Link } from "react-router-dom";
 import CopyLink from "../components/CopyLink.jsx";
 import ModeIcon from "../components/ModeIcon.jsx";
@@ -81,7 +81,7 @@ function useWide() {
   return wide;
 }
 
-export default function Summary({ me, nav = true }) {
+export default function Summary({ me, nav = true, owner }) {
   const [entries, setEntries] = useState(null);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
@@ -115,7 +115,7 @@ export default function Summary({ me, nav = true }) {
     return (
       <>
         <div>
-          <h1 className={h1}>Summary</h1>
+          <h1 className={h1}>{owner ? `${possessive(owner)} Summary` : "Summary"}</h1>
         </div>
         <div className={empty}>
           <p className={emptyTitle}>{error}</p>
@@ -135,7 +135,7 @@ export default function Summary({ me, nav = true }) {
     return (
       <>
         <div>
-          <h1 className={h1}>Summary</h1>
+          <h1 className={h1}>{owner ? `${possessive(owner)} Summary` : "Summary"}</h1>
           <p className={muted}>Loading.</p>
         </div>
       </>
@@ -210,7 +210,7 @@ export default function Summary({ me, nav = true }) {
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className={h1}>Summary</h1>
+          <h1 className={h1}>{owner ? `${possessive(owner)} Summary` : "Summary"}</h1>
           <p className={muted}>
             {filtered.length} GDs · {mapperCount} mappers · {avg.toFixed(2)}★ average
             {years.length > 1 ? ` · ${years[0]} to ${years[years.length - 1]}` : ""}

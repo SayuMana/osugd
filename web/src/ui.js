@@ -53,3 +53,6 @@ export const statusChip = (status) => `${chipBase} ${STATUS[status] ?? "border-s
 
 // pesan "private" dari API bukan error, jangan tawarkan retry
 export const isPrivate = (msg) => /private/i.test(msg || "");
+
+// nama berakhiran s cukup apostrof: Chris' bukan Chris's
+export const possessive = (name) => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
