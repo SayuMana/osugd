@@ -75,11 +75,12 @@ await call("/api/settings", ADM_C, { method: "PATCH", body: JSON.stringify({ adm
 const { data: linkRow } = await db.from("gd_entries").select("beatmapset_id,beatmap_id").eq("owner_id", 12602650).not("beatmapset_id", "is", null).limit(1);
 if (linkRow?.length) {
   const l = linkRow[0];
+  // yang penting: jumlah baris korban tidak bertambah gara-gara request ini
+  const victimCount = async () =>
+    (await db.from("gd_entries").select("id", { count: "exact", head: true }).eq("beatmap_id", l.beatmap_id).eq("owner_id", 26705942)).count ?? 0;
+  const before = await victimCount();
   await call("/api/gd/batch?user=DaCh1", ATT_C, { method: "POST", body: JSON.stringify({ text: `https://osu.ppy.sh/beatmapsets/${l.beatmapset_id}#osu/${l.beatmap_id}`, confirm: true }) });
-  // yang penting: tidak ada baris yang mendarat di akun korban
-  const { data: leaked } = await db.from("gd_entries").select("id").eq("beatmap_id", l.beatmap_id).eq("owner_id", 26705942);
-  const before = 0;
-  check("batch ?user=DaCh1 -> tidak ada baris nyasar ke korban", leaked?.length ?? 0, before);
+  check("batch ?user=DaCh1 -> baris korban tidak bertambah", await victimCount(), before);
   await db.from("gd_entries").delete().eq("owner_id", ATT);
 }
 
