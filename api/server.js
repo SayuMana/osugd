@@ -448,9 +448,13 @@ async function insertEntry(ownerId, full, pick) {
     source: "manual",
     synced_at: new Date().toISOString(),
   };
-  const up = await db.from("gd_entries").upsert(row, { onConflict: "owner_id,beatmap_id" });
+  const up = await db
+    .from("gd_entries")
+    .upsert(row, { onConflict: "owner_id,beatmap_id" })
+    .select("id,gd_date")
+    .single();
   if (up.error) throw new Error(up.error.message);
-  return row;
+  return up.data;
 }
 
 const PUBLISHED = new Set(["ranked", "approved", "loved", "qualified"]);
@@ -488,11 +492,13 @@ app.post("/api/gd/batch", limit("osu"), async (req, res) => {
 
             if (mine.length) {
               const pick = mine[0];
-              await insertEntry(ownerId, full, pick);
+              const saved = await insertEntry(ownerId, full, pick);
               const extra = mine.length > 1 ? ` · ${mine.length} diffs are yours, used the first` : "";
               return {
                 line,
                 ok: true,
+                id: saved?.id ?? null,
+                gd_date: saved?.gd_date ?? null,
                 message: `${full.title} (${pick.version}) · ${full.status}${extra}`,
               };
             }
@@ -1301,8 +1307,13 @@ app.post("/api/gd/force", limit("osu"), async (req, res) => {
     const pick = (full.beatmaps || []).find((b) => b.id === diff);
     if (!pick) return res.status(404).json({ error: "That difficulty is not in this set." });
 
-    await insertEntry(ownerId, full, pick);
-    res.json({ ok: true, message: `${full.title} (${pick.version}) · ${full.status}` });
+    const saved = await insertEntry(ownerId, full, pick);
+    res.json({
+      ok: true,
+      id: saved?.id ?? null,
+      gd_date: saved?.gd_date ?? null,
+      message: `${full.title} (${pick.version}) · ${full.status}`,
+    });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }

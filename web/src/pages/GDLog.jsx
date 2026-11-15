@@ -94,6 +94,8 @@ export default function GDLog({ me, user, owner }) {
   const [text, setText] = useState("");
   const [results, setResults] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState(null);
+  const [pendingScroll, setPendingScroll] = useState([]);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState({});
   const [editing, setEditing] = useState(null);
@@ -108,6 +110,15 @@ export default function GDLog({ me, user, owner }) {
 
   // target user lain hanya terkirim kalau admin mode nyala (dicek di server)
   const tq = user ? `?user=${encodeURIComponent(user)}` : "";
+
+  // baris yang baru masuk: kabari bulannya, tombolnya yang menggulir kalau mau
+  const announce = (rows) => {
+    const months = [...new Set(rows.map((r) => monthLabel({ gd_date: r.gd_date })))];
+    setFlash({
+      text: `Added ${rows.length} ${rows.length === 1 ? "GD" : "GDs"} · ${months.join(", ")}`,
+      ids: rows.map((r) => r.id),
+    });
+  };
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams();
@@ -234,6 +245,12 @@ export default function GDLog({ me, user, owner }) {
     setResults(j.results);
     setText("");
     load();
+    // semua baris masuk: dialog ditutup, halaman langsung menunjukkan hasilnya
+    const ok = j.results.filter((r) => r.ok && r.id);
+    if (ok.length && !j.results.some((r) => !r.ok)) {
+      setAddOpen(false);
+      announce(ok);
+    }
   }
 
   async function confirmEntry(index, r) {
@@ -250,7 +267,13 @@ export default function GDLog({ me, user, owner }) {
           : x
       )
     );
-    if (res.ok) load();
+    if (res.ok) {
+      load();
+      if (j.id) {
+        setAddOpen(false);
+        announce([{ id: j.id, gd_date: j.gd_date }]);
+      }
+    }
   }
 
   function openEdit(entry) {
@@ -294,6 +317,25 @@ export default function GDLog({ me, user, owner }) {
     load();
   }
 
+  // gulir hanya kalau tombolnya diklik
+  useEffect(() => {
+    if (!pendingScroll.length || !entries) return;
+    const el = document.getElementById(`gd-${pendingScroll[0]}`);
+    if (!el) {
+      // filter bisa menyembunyikan baris yang baru masuk; buka dulu, jangan diam saja
+      if (statuses.length !== STATUSES.length || year || activeMode !== "all") {
+        setStatuses(STATUSES);
+        setYear(null);
+        setActiveMode("all");
+        return;
+      }
+      setPendingScroll([]);
+      return;
+    }
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    setPendingScroll([]);
+  }, [entries, pendingScroll, statuses, year, activeMode]);
+
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -309,6 +351,21 @@ export default function GDLog({ me, user, owner }) {
         </div>
         {me && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
       </div>
+
+      {flash && (
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Status as="span" className={muted}>
+            {flash.text}
+          </Status>
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => setPendingScroll(flash.ids)}
+          >
+            Jump to it
+          </button>
+        </div>
+      )}
 
       {years.length > 0 && (
         <div className="mt-4 flex flex-col items-start gap-2.5">
@@ -382,6 +439,13 @@ export default function GDLog({ me, user, owner }) {
 
               <div className={filterGroup} role="group" aria-label="Filter by status">
                 <span className={filterLabel}>Status</span>
+                <button
+                  className={statuses.length === STATUSES.length ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
+                  aria-pressed={statuses.length === STATUSES.length}
+                  onClick={() => setStatuses(STATUSES)}
+                >
+                  All
+                </button>
                 {STATUSES.map((s) => (
                   <button
                     key={s}
@@ -730,7 +794,7 @@ export default function GDLog({ me, user, owner }) {
                 </tr>
               )}
               {group.items.map((e) => (
-                <tr key={e.id}>
+                <tr key={e.id} id={`gd-${e.id}`}>
                   <td className="border-b border-line px-2 py-2.5 text-center align-middle">
                     <ModeIcon mode={e.game_mode} className="mx-auto h-4 w-4" />
                   </td>

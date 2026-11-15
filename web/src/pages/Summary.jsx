@@ -380,6 +380,13 @@ export default function Summary({ me, nav = true, owner, user }) {
 
         <div className={filterGroup} role="group" aria-label="Filter by status">
           <span className={filterLabel}>Status</span>
+          <button
+            className={statuses.length === STATUSES.length ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
+            aria-pressed={statuses.length === STATUSES.length}
+            onClick={() => setStatuses(STATUSES)}
+          >
+            All
+          </button>
           {STATUSES.map((s) => (
             <button
               key={s}
