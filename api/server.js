@@ -94,6 +94,17 @@ function safeEqual(a, b) {
   return A.length === B.length && crypto.timingSafeEqual(A, B);
 }
 
+// error database: detailnya masuk log server, klien cuma dapat pesan umum
+const SAFE_ERR = "Something broke on our side. Try again.";
+const dbFail = (res, e) => {
+  console.error("db:", e?.message || e);
+  return res.status(500).json({ error: SAFE_ERR });
+};
+const dbThrow = (e) => {
+  console.error("db:", e?.message || e);
+  return new Error(SAFE_ERR);
+};
+
 function setSession(res, data) {
   const payload = b64(JSON.stringify({ ...data, exp: Date.now() + 30 * 864e5 }));
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
@@ -258,7 +269,7 @@ app.get("/api/gd", limit("read"), async (req, res) => {
   if (!privileged || req.query.archived !== "1") q = q.eq("is_archived", false);
 
   const { data, error } = await q;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   // catatan pribadi: jangan pernah ikut ke pengunjung
   const entries = privileged ? data : (data || []).map(({ note, ...rest }) => rest);
   res.json({ entries, defaults: await ownerDefaults(ownerId), user: owner.username });
@@ -362,7 +373,7 @@ app.get("/api/summary", limit("read"), async (req, res) => {
     .eq("owner_id", ownerId)
     .eq("is_archived", false)
     .order("gd_date", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   res.json({ entries: data, names: await mapperNames(data), defaults: await ownerDefaults(ownerId), user: owner.username });
 });
 
@@ -453,7 +464,7 @@ async function insertEntry(ownerId, full, pick) {
     .upsert(row, { onConflict: "owner_id,beatmap_id" })
     .select("id,gd_date")
     .single();
-  if (up.error) throw new Error(up.error.message);
+  if (up.error) throw dbThrow(up.error);
   return up.data;
 }
 
@@ -572,7 +583,7 @@ app.patch("/api/gd/:id", async (req, res) => {
     .eq("id", Number(req.params.id))
     .eq("owner_id", ownerId)
     .select("id,note,is_archived");
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   if (!data?.length) return res.status(404).json({ error: "Entry not found." });
   res.json({ ok: true, entry: data[0] });
 });
@@ -584,7 +595,7 @@ app.delete("/api/gd/:id", async (req, res) => {
 
   const id = Number(req.params.id);
   const del = await db.from("gd_entries").delete().eq("id", id).eq("owner_id", ownerId);
-  if (del.error) return res.status(500).json({ error: del.error.message });
+  if (del.error) return dbFail(res, del.error);
 
   const { data: still } = await db.from("gd_entries").select("id").eq("id", id).maybeSingle();
   if (still) return res.status(404).json({ error: "Entry not found." });
@@ -626,7 +637,7 @@ app.post("/api/gd/:id/resync", limit("osu"), async (req, res) => {
     }
 
     const { error } = await db.from("gd_entries").update(patch).eq("id", id).eq("owner_id", ownerId);
-    if (error) throw new Error(error.message);
+    if (error) throw dbThrow(error);
     res.json({ ok: true, status: full.status, message: `${full.title} is ${full.status} now.` });
   } catch (e) {
     res.status(502).json({ error: e.message });
@@ -642,7 +653,7 @@ app.get("/api/settings", async (req, res) => {
     .select("*")
     .eq("owner_id", s.osu_id)
     .maybeSingle();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
 
   if (data) return res.json(data);
 
@@ -651,7 +662,7 @@ app.get("/api/settings", async (req, res) => {
     .insert({ owner_id: s.osu_id })
     .select("*")
     .single();
-  if (createError) return res.status(500).json({ error: createError.message });
+  if (createError) return dbFail(res, createError);
   res.json(created);
 });
 
@@ -689,7 +700,7 @@ app.patch("/api/settings", async (req, res) => {
     .eq("owner_id", s.osu_id)
     .select("*")
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   res.json(data);
 });
 
@@ -742,7 +753,7 @@ app.get("/api/requests", limit("read"), async (req, res) => {
     .in("status", ["pending", "accepted", "in_progress", "on_hold", "done"])
     .order("created_at", { ascending: false })
     .limit(60);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
 
   const ids = [...new Set((list || []).map((r) => r.requester_id))];
   let names = {};
@@ -884,7 +895,7 @@ app.post("/api/requests", async (req, res) => {
       })
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw dbThrow(error);
     res.json({ ok: true, id: created.id });
   } catch (e) {
     res.status(502).json({ error: e.message });
@@ -909,7 +920,7 @@ app.patch("/api/requests/:id", async (req, res) => {
 
   if (action === "consider") {
     const { error } = await db.from("requests").update({ status: "on_hold" }).eq("id", id);
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return dbFail(res, error);
     return res.json({ ok: true, status: "on_hold" });
   }
 
@@ -923,7 +934,7 @@ app.patch("/api/requests/:id", async (req, res) => {
         archived_reason: reason || null,
       })
       .eq("id", id);
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return dbFail(res, error);
     return res.json({ ok: true, status: "rejected" });
   }
 
@@ -966,7 +977,7 @@ app.patch("/api/requests/:id", async (req, res) => {
     if (trackError) return res.status(409).json({ error: trackError.message });
 
     const { error } = await db.from("requests").update({ status: "accepted" }).eq("id", id);
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return dbFail(res, error);
     return res.json({ ok: true, status: "accepted" });
   }
 
@@ -983,7 +994,7 @@ app.post("/api/requests/:id/restore", async (req, res) => {
     .update({ status: "pending", archived_at: null, archived_reason: null })
     .eq("id", Number(req.params.id))
     .eq("owner_id", ownerId);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   res.json({ ok: true });
 });
 
@@ -1028,7 +1039,7 @@ app.get("/api/tracks", limit("read"), async (req, res) => {
         .range(page * PAGE, page * PAGE + PAGE - 1);
 
   const { data, error, count } = await query;
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
 
   const tracks = privileged ? data || [] : (data || []).map(({ note, ...rest }) => rest);
   res.json({ tracks, history, total: count ?? 0, page, page_size: PAGE });
@@ -1079,7 +1090,7 @@ app.post("/api/tracks", async (req, res) => {
           })
           .select("id")
           .single();
-        if (error) throw new Error(error.message);
+        if (error) throw dbThrow(error);
         added.push(data.id);
       } catch (e) {
         failed.push({ link, error: e.message });
@@ -1138,7 +1149,7 @@ app.post("/api/tracks", async (req, res) => {
     })
     .select("id")
     .single();
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
 
   res.json({ ok: true, id: data.id });
 });
@@ -1155,7 +1166,7 @@ app.delete("/api/tracks/:id", async (req, res) => {
     .eq("id", id)
     .eq("owner_id", ownerId)
     .select("id");
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   if (!data?.length) return res.status(404).json({ error: "Track not found." });
   res.json({ ok: true });
 });
@@ -1292,13 +1303,13 @@ app.patch("/api/tracks/:id", async (req, res) => {
           track_id: id,
           synced_at: new Date().toISOString(),
         });
-        if (error) return res.status(500).json({ error: error.message });
+        if (error) return dbFail(res, error);
       }
     }
   }
 
   const { error } = await db.from("gd_tracks").update(patch).eq("id", id);
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) return dbFail(res, error);
   res.json({ ok: true, track_status: patch.track_status ?? track.track_status });
 });
 
@@ -1342,7 +1353,7 @@ async function runSync(ownerId) {
     .not("beatmapset_id", "is", null)
     .order("synced_at", { ascending: true, nullsFirst: true })
     .limit(160);
-  if (error) throw new Error(error.message);
+  if (error) throw dbThrow(error);
 
   const bySet = new Map();
   for (const r of rows || []) {
@@ -1466,7 +1477,7 @@ app.post("/api/import", async (req, res) => {
       .select("beatmapset_id")
       .eq("owner_id", ownerId)
       .not("beatmapset_id", "is", null);
-    if (existing.error) throw new Error(existing.error.message);
+    if (existing.error) throw dbThrow(existing.error);
     const seen = new Set((existing.data || []).map((r) => r.beatmapset_id));
 
     const todo = page.filter((set) => !seen.has(set.id));
@@ -1501,7 +1512,7 @@ app.post("/api/import", async (req, res) => {
 
     if (rows.length) {
       const up = await db.from("gd_entries").upsert(rows, { onConflict: "owner_id,beatmap_id" });
-      if (up.error) throw new Error(up.error.message);
+      if (up.error) throw dbThrow(up.error);
     }
 
     res.json({
