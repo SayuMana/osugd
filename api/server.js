@@ -326,7 +326,7 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const gdsTotal = count ?? 0;
 
   res.json({
-    user: { ...user, is_self: isSelf },
+    user: { osu_id: user.osu_id, username: user.username, avatar_url: user.avatar_url, is_self: isSelf },
     gds,
     gds_total: gdsTotal,
     requests: reqs || [],
@@ -455,7 +455,7 @@ async function insertEntry(ownerId, full, pick) {
 
 const PUBLISHED = new Set(["ranked", "approved", "loved", "qualified"]);
 
-app.post("/api/gd/batch", async (req, res) => {
+app.post("/api/gd/batch", limit("osu"), async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
   const ownerId = await actorId(req, s);
@@ -575,7 +575,7 @@ app.delete("/api/gd/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/gd/:id/resync", async (req, res) => {
+app.post("/api/gd/:id/resync", limit("osu"), async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
   const ownerId = await actorId(req, s);
@@ -1286,7 +1286,7 @@ app.patch("/api/tracks/:id", async (req, res) => {
   res.json({ ok: true, track_status: patch.track_status ?? track.track_status });
 });
 
-app.post("/api/gd/force", async (req, res) => {
+app.post("/api/gd/force", limit("osu"), async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
   const ownerId = await actorId(req, s);
@@ -1377,7 +1377,7 @@ async function runSync(ownerId) {
   };
 }
 
-app.post("/api/sync", async (req, res) => {
+app.post("/api/sync", limit("osu"), async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
   const ownerId = await actorId(req, s);
