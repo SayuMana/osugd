@@ -78,7 +78,7 @@ function groupByMonth(entries, dir, cmp) {
   return groups;
 }
 
-export default function GDLog({ me, host, owner }) {
+export default function GDLog({ me, user, owner }) {
   const [entries, setEntries] = useState(null);
   const [year, setYear] = useState(null);
   const [dir, setDir] = useState("desc");
@@ -107,21 +107,24 @@ export default function GDLog({ me, host, owner }) {
   const defaultsApplied = useRef(false);
 
   const load = useCallback(async () => {
-    const r = await fetch(`/api/gd${showArchived ? "?archived=1" : ""}`);
+    const qs = new URLSearchParams();
+    if (user) qs.set("user", user);
+    if (showArchived) qs.set("archived", "1");
+    const r = await fetch(`/api/gd?${qs}`);
     const j = await r.json();
     if (!r.ok) {
       setError(j.error === "private" ? "This log is private." : j.error || "Couldn't load the log.");
       setEntries([]);
       return;
     }
-    setEntries(host ? (j.entries || []).filter((e) => e.host === host) : j.entries);
+    setEntries(j.entries || []);
 
     if (!defaultsApplied.current && j.defaults) {
       defaultsApplied.current = true;
       if (j.defaults.mode) setActiveMode(j.defaults.mode);
       if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
     }
-  }, [showArchived, host]);
+  }, [showArchived, user]);
 
   const runImport = useCallback(
     async (startOffset = 0) => {

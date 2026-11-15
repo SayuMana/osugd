@@ -3,7 +3,6 @@ import { runImport } from "../lib/import.js";
 import { TAB, TAB_OFF, TAB_ON, btn, btnGhost, empty, emptyTitle, h1, inputFit, muted, panel, panelH2 } from "../ui.js";
 import { MODES } from "../lib/mode.js";
 import Status from "../components/Status.jsx";
-import NotFound from "./NotFound.jsx";
 
 const TOGGLES = [
   ["gd_log_public", "GD log is public", "Turn off to hide the whole log from visitors."],
@@ -37,8 +36,6 @@ export default function Settings({ me }) {
       .catch((e) => setError(e.message));
   }, []);
 
-  // tamu tidak punya urusan di sini (setelah semua hook)
-  if (me !== undefined && me?.role !== "admin") return <NotFound />;
 
   if (error) {
     return (

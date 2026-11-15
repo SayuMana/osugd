@@ -54,7 +54,7 @@ function Cover({ id }) {
   );
 }
 
-export default function Tracks({ me, owner }) {
+export default function Tracks({ me, owner, user }) {
   const [tracks, setTracks] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(null);
@@ -90,8 +90,10 @@ export default function Tracks({ me, owner }) {
   const doneRef = useDialog(!!doneTrack, () => setDoneTrack(null));
 
   const load = useCallback(async () => {
-    const qs = `?page=${page}${tab === "history" ? "&history=1" : ""}`;
-    const r = await fetch(`/api/tracks${qs}`);
+    const qs = new URLSearchParams({ page: String(page) });
+    if (tab === "history") qs.set("history", "1");
+    if (user) qs.set("user", user);
+    const r = await fetch(`/api/tracks?${qs}`);
     const j = await r.json();
     if (!r.ok) {
       setError(j.error || "Couldn't load the board.");

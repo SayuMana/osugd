@@ -59,8 +59,6 @@ export default function ProfilePage({ page }) {
 
   const name = data.user.username;
   const link = (path) => `/u/${encodeURIComponent(name)}${path}`;
-  // host hanya dipakai kalau yang dilihat bukan owner: itu GD yang dibuat untuk mereka
-  const host = data.user.role === "admin" ? undefined : name;
 
   return (
     <>
@@ -86,9 +84,9 @@ export default function ProfilePage({ page }) {
       </div>
 
       {/* me={null} bikin semua tombol owner hilang: add, edit, delete, bring back */}
-      {page === "summary" && <Summary me={null} nav={false} owner={name} />}
-      {page === "log" && <GDLog me={null} host={host} owner={name} />}
-      {page === "track" && <Tracks me={null} owner={name} />}
+      {page === "summary" && <Summary me={null} nav={false} owner={name} user={name} />}
+      {page === "log" && <GDLog me={null} user={name} owner={name} />}
+      {page === "track" && <Tracks me={null} owner={name} user={name} />}
     </>
   );
 }

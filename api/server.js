@@ -184,12 +184,32 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-const OWNER_ID = Number(process.env.OWNER_OSU_ID || 0);
+// cari pemilik data: ?user=<nama|id> untuk tampilan publik, kalau tidak ada pakai yang login
+async function resolveOwner(req) {
+  const s = readSession(req);
+  const q = String(req.query.user || "").trim();
+
+  if (q) {
+    const base = db.from("users").select("osu_id,username,role");
+    const { data: u } = /^\d+$/.test(q)
+      ? await base.eq("osu_id", Number(q)).maybeSingle()
+      : await base.ilike("username", q.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
+    if (!u) return { error: "notfound" };
+    return { s, owner: u, isSelf: s?.osu_id === u.osu_id };
+  }
+
+  if (!s) return { error: "auth" };
+  return { s, owner: { osu_id: s.osu_id, username: s.username, role: s.role }, isSelf: true };
+}
 
 app.get("/api/gd", limit("read"), async (req, res) => {
-  const s = readSession(req);
-  const isOwner = s && s.role === "admin";
-  const ownerId = OWNER_ID || (isOwner ? s.osu_id : 0);
+  const r = await resolveOwner(req);
+  if (r.error === "auth") return res.status(401).json({ error: "Log in first." });
+  if (r.error) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const { s, owner, isSelf } = r;
+  const ownerId = owner.osu_id;
+  const privileged = isSelf || s?.role === "admin";
 
   const { data: settings } = await db
     .from("user_settings")
@@ -197,74 +217,69 @@ app.get("/api/gd", limit("read"), async (req, res) => {
     .eq("owner_id", ownerId)
     .maybeSingle();
   const isPublic = settings?.gd_log_public ?? true;
-  if (!isOwner && isPublic === false) return res.status(403).json({ error: "private" });
+  if (!privileged && isPublic === false) return res.status(403).json({ error: "private" });
 
   let q = db
     .from("gd_entries")
     .select(withMode("id,beatmapset_id,beatmap_id,artist,title,diff_name,host,map_status,star_rating,gd_date,note,is_archived,source"))
     .eq("owner_id", ownerId)
     .order("gd_date", { ascending: false });
-  if (!isOwner || req.query.archived !== "1") q = q.eq("is_archived", false);
+  if (!privileged || req.query.archived !== "1") q = q.eq("is_archived", false);
 
   const { data, error } = await q;
   if (error) return res.status(500).json({ error: error.message });
   // catatan pribadi: jangan pernah ikut ke pengunjung
-  const entries = isOwner ? data : (data || []).map(({ note, ...rest }) => rest);
-  res.json({ entries, defaults: await ownerDefaults(ownerId) });
+  const entries = privileged ? data : (data || []).map(({ note, ...rest }) => rest);
+  res.json({ entries, defaults: await ownerDefaults(ownerId), user: owner.username });
 });
 
 app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const s = readSession(req);
-  const isOwner = s && s.role === "admin";
-  const ownerId = OWNER_ID || (isOwner ? s.osu_id : 0);
   // terima osu id maupun username, biar link bisa dibaca (/u/sayumana)
   const raw = String(req.params.osuId || "").trim().slice(0, 64);
   if (!raw) return res.status(400).json({ error: "Bad user id." });
 
-  // dua query pertama jalan bareng, biar tidak bolak-balik ke database
-  const settingsP = db
-    .from("user_settings")
-    .select("*")
-    .eq("owner_id", ownerId)
-    .maybeSingle();
-
   const base = db.from("users").select("osu_id,username,avatar_url,role");
-  const userP = /^\d+$/.test(raw)
-    ? base.eq("osu_id", Number(raw)).maybeSingle()
-    : base.ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
-
-  const [{ data: user }, { data: settings }] = await Promise.all([userP, settingsP]);
+  const { data: user } = /^\d+$/.test(raw)
+    ? await base.eq("osu_id", Number(raw)).maybeSingle()
+    : await base.ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
   if (!user) return res.status(404).json({ error: "That user has not logged in here." });
 
   const id = user.osu_id;
   const isSelf = s?.osu_id === id;
+  const privileged = isSelf || s?.role === "admin";
   const PAGE = 20;
   const page = Math.max(0, Number(req.query.page) || 0);
+
+  const { data: settings } = await db
+    .from("user_settings")
+    .select("*")
+    .eq("owner_id", id)
+    .maybeSingle();
   const logPublic = settings?.gd_log_public ?? true;
 
   // profil bisa disembunyikan dari orang lain
-  if (settings?.profile_public === false && !isOwner) {
+  if (settings?.profile_public === false && !privileged) {
     return res.status(403).json({ error: "This profile is private." });
   }
 
-  const statuses =
-    isSelf || isOwner
-      ? ["pending", "accepted", "in_progress", "done", "rejected", "on_hold"]
-      : ["pending", "accepted", "in_progress", "done"];
+  const statuses = privileged
+    ? ["pending", "accepted", "in_progress", "done", "rejected", "on_hold"]
+    : ["pending", "accepted", "in_progress", "done"];
 
-  // gd_entries cuma simpan nama host. Untuk owner, tampilkan seluruh log miliknya.
+  // log milik user itu sendiri, bukan filter host lagi
   let gdsP = Promise.resolve({ data: [], count: 0 });
-  if (logPublic || isOwner) {
-    let q = db
+  if (logPublic || privileged) {
+    gdsP = db
       .from("gd_entries")
       .select(
         withMode("id,beatmapset_id,beatmap_id,artist,title,diff_name,host,map_status,star_rating,gd_date"),
         { count: "exact" }
       )
-      .eq("owner_id", ownerId)
-      .eq("is_archived", false);
-    if (id !== ownerId) q = q.eq("host", user.username);
-    gdsP = q.order("gd_date", { ascending: false }).range(page * PAGE, page * PAGE + PAGE - 1);
+      .eq("owner_id", id)
+      .eq("is_archived", false)
+      .order("gd_date", { ascending: false })
+      .range(page * PAGE, page * PAGE + PAGE - 1);
   }
 
   const reqsP = db
@@ -293,9 +308,13 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
 });
 
 app.get("/api/summary", limit("read"), async (req, res) => {
-  const s = readSession(req);
-  const isOwner = s && s.role === "admin";
-  const ownerId = OWNER_ID || (isOwner ? s.osu_id : 0);
+  const r = await resolveOwner(req);
+  if (r.error === "auth") return res.status(401).json({ error: "Log in first." });
+  if (r.error) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const { s, owner, isSelf } = r;
+  const ownerId = owner.osu_id;
+  const privileged = isSelf || s?.role === "admin";
 
   const { data: settings } = await db
     .from("user_settings")
@@ -304,7 +323,7 @@ app.get("/api/summary", limit("read"), async (req, res) => {
     .maybeSingle();
   // kolom summary_public menyusul; sebelum ada, ikut visibility log
   const isPublic = settings?.summary_public ?? settings?.gd_log_public ?? true;
-  if (!isOwner && isPublic === false) return res.status(403).json({ error: "private" });
+  if (!privileged && isPublic === false) return res.status(403).json({ error: "private" });
 
   const { data, error } = await db
     .from("gd_entries")
@@ -313,7 +332,7 @@ app.get("/api/summary", limit("read"), async (req, res) => {
     .eq("is_archived", false)
     .order("gd_date", { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ entries: data, names: await mapperNames(data), defaults: await ownerDefaults(ownerId) });
+  res.json({ entries: data, names: await mapperNames(data), defaults: await ownerDefaults(ownerId), user: owner.username });
 });
 
 const NAMES_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -407,7 +426,7 @@ const PUBLISHED = new Set(["ranked", "approved", "loved", "qualified"]);
 
 app.post("/api/gd/batch", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const lines = String(req.body?.text || "")
     .split("\n")
@@ -488,7 +507,7 @@ app.post("/api/gd/batch", async (req, res) => {
 
 app.patch("/api/gd/:id", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const patch = {};
   if (typeof req.body?.note === "string") patch.note = req.body.note.slice(0, 500);
@@ -511,7 +530,7 @@ app.patch("/api/gd/:id", async (req, res) => {
 
 app.delete("/api/gd/:id", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const id = Number(req.params.id);
   const del = await db.from("gd_entries").delete().eq("id", id).eq("owner_id", s.osu_id);
@@ -524,7 +543,7 @@ app.delete("/api/gd/:id", async (req, res) => {
 
 app.post("/api/gd/:id/resync", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const id = Number(req.params.id);
   const { data: row } = await db
@@ -565,7 +584,7 @@ app.post("/api/gd/:id/resync", async (req, res) => {
 
 app.get("/api/settings", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const { data, error } = await db
     .from("user_settings")
@@ -589,7 +608,7 @@ const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "p
 
 app.patch("/api/settings", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const patch = {};
   for (const key of SETTINGS_BOOLS) {
@@ -657,8 +676,13 @@ app.get("/api/request/resolve", limit("osu"), async (req, res) => {
 });
 
 app.get("/api/requests", limit("read"), async (req, res) => {
-  const s = readSession(req);
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const r = await resolveOwner(req);
+  if (r.error === "auth") return res.status(401).json({ error: "Log in first." });
+  if (r.error) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const { s, owner, isSelf } = r;
+  const ownerId = owner.osu_id;
+  const privileged = isSelf || s?.role === "admin";
 
   const { data: list, error } = await db
     .from("requests")
@@ -676,10 +700,9 @@ app.get("/api/requests", limit("read"), async (req, res) => {
     names = Object.fromEntries((users || []).map((u) => [u.osu_id, u.username]));
   }
 
-  const isOwner = s?.role === "admin";
   const requests = (list || []).map(({ note, ...r }) => ({
     ...r,
-    ...(isOwner ? { note } : {}),
+    ...(privileged ? { note } : {}),
     requester: names[r.requester_id] || "someone",
   }));
 
@@ -737,7 +760,7 @@ app.post("/api/requests", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
   const { data: settings } = await db
     .from("user_settings")
     .select("*")
@@ -819,9 +842,9 @@ app.post("/api/requests", async (req, res) => {
 
 app.patch("/api/requests/:id", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
   const id = Number(req.params.id);
   const action = String(req.body?.action || "");
 
@@ -901,9 +924,9 @@ app.patch("/api/requests/:id", async (req, res) => {
 
 app.post("/api/requests/:id/restore", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
   const { error } = await db
     .from("requests")
     .update({ status: "pending", archived_at: null, archived_reason: null })
@@ -914,16 +937,20 @@ app.post("/api/requests/:id/restore", async (req, res) => {
 });
 
 app.get("/api/tracks", limit("read"), async (req, res) => {
-  const s = readSession(req);
-  const ownerId = Number(process.env.OWNER_OSU_ID);
-  const isOwner = s?.role === "admin";
+  const r = await resolveOwner(req);
+  if (r.error === "auth") return res.status(401).json({ error: "Log in first." });
+  if (r.error) return res.status(404).json({ error: "That user has not logged in here." });
+
+  const { s, owner, isSelf } = r;
+  const ownerId = owner.osu_id;
+  const privileged = isSelf || s?.role === "admin";
 
   const { data: settings } = await db
     .from("user_settings")
     .select("gd_track_public")
     .eq("owner_id", ownerId)
     .maybeSingle();
-  if (!isOwner && settings?.gd_track_public === false) {
+  if (!privileged && settings?.gd_track_public === false) {
     return res.status(403).json({ error: "The track board is private." });
   }
 
@@ -952,15 +979,15 @@ app.get("/api/tracks", limit("read"), async (req, res) => {
   const { data, error, count } = await query;
   if (error) return res.status(500).json({ error: error.message });
 
-  const tracks = isOwner ? data || [] : (data || []).map(({ note, ...rest }) => rest);
+  const tracks = privileged ? data || [] : (data || []).map(({ note, ...rest }) => rest);
   res.json({ tracks, history, total: count ?? 0, page, page_size: PAGE });
 });
 
 app.post("/api/tracks", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
 
   // mode beatmap: banyak link sekaligus, difficulty per map
   const items = Array.isArray(req.body?.items)
@@ -1067,9 +1094,9 @@ app.post("/api/tracks", async (req, res) => {
 
 app.delete("/api/tracks/:id", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
   const id = Number(req.params.id);
   const { data, error } = await db
     .from("gd_tracks")
@@ -1084,9 +1111,9 @@ app.delete("/api/tracks/:id", async (req, res) => {
 
 app.patch("/api/tracks/:id", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
+  const ownerId = s.osu_id;
   const id = Number(req.params.id);
   const status = req.body?.track_status;
 
@@ -1226,7 +1253,7 @@ app.patch("/api/tracks/:id", async (req, res) => {
 
 app.post("/api/gd/force", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const set = Number(req.body?.beatmapset_id);
   const diff = Number(req.body?.beatmap_id);
@@ -1316,7 +1343,7 @@ async function runSync(ownerId) {
 
 app.post("/api/sync", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const { data: settings } = await db
     .from("user_settings")
@@ -1339,24 +1366,29 @@ app.get("/api/cron/sync", async (req, res) => {
   const given = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   if (!safeEqual(given, secret)) return res.status(401).end();
 
-  const ownerId = Number(process.env.OWNER_OSU_ID);
-  const { data: settings } = await db
+  const { data: rows } = await db
     .from("user_settings")
-    .select("sync_enabled")
-    .eq("owner_id", ownerId)
-    .maybeSingle();
-  if (settings?.sync_enabled === false) return res.json({ skipped: true });
-
-  try {
-    res.json(await runSync(ownerId));
-  } catch (e) {
-    res.status(502).json({ error: e.message });
+    .select("owner_id")
+    .neq("sync_enabled", false);
+  const results = [];
+  for (const row of rows || []) {
+    try {
+      results.push(await runSync(row.owner_id));
+    } catch (e) {
+      results.push({ error: e.message });
+    }
   }
+  res.json({
+    users: results.length,
+    sets: results.reduce((a, r) => a + (r.sets || 0), 0),
+    updated: results.reduce((a, r) => a + (r.updated || 0), 0),
+    failed: results.filter((r) => r.error).length,
+  });
 });
 
 app.post("/api/import", async (req, res) => {
   const s = readSession(req);
-  if (!s || s.role !== "admin") return res.status(403).json({ error: "owner only" });
+  if (!s) return res.status(401).json({ error: "Log in first." });
 
   const offset = Math.max(0, Number(req.query.offset) || 0);
   try {
@@ -1427,8 +1459,9 @@ app.post("/api/import", async (req, res) => {
 
 app.get("/api/dashboard", async (req, res) => {
   const s = readSession(req);
-  const isOwner = s && s.role === "admin";
-  const ownerId = OWNER_ID || (isOwner ? s.osu_id : 0);
+  if (!s) return res.status(401).json({ error: "Log in first." });
+  const isOwner = true;
+  const ownerId = s.osu_id;
 
   const { data: settings } = await db
     .from("user_settings")
@@ -1558,18 +1591,16 @@ app.get("/api/dashboard", async (req, res) => {
 if (!process.env.VERCEL) {
   // sync harian; di Vercel timer ini mati, pakai cron eksternal ke /api/cron/sync
   const autoSync = async () => {
-    const ownerId = Number(process.env.OWNER_OSU_ID);
-    if (!ownerId) return;
-    const { data } = await db
+    const { data: rows } = await db
       .from("user_settings")
-      .select("sync_enabled")
-      .eq("owner_id", ownerId)
-      .maybeSingle();
-    if (data?.sync_enabled === false) return;
-    try {
-      await runSync(ownerId);
-    } catch (e) {
-      console.error("auto sync:", e.message);
+      .select("owner_id")
+      .neq("sync_enabled", false);
+    for (const row of rows || []) {
+      try {
+        await runSync(row.owner_id);
+      } catch (e) {
+        console.error("auto sync:", row.owner_id, e.message);
+      }
     }
   };
   setTimeout(autoSync, 60_000).unref();

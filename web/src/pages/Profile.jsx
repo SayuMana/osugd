@@ -36,12 +36,9 @@ export default function Profile({ me }) {
         setLogPublic(!!j.log_public);
         if (!j.log_public) return setEntries([]);
 
-        const g = await fetch("/api/gd");
+        const g = await fetch(`/api/gd?user=${encodeURIComponent(j.user.username)}`);
         const gj = await g.json();
-        if (!g.ok) return setEntries([]);
-        // log milik owner: semuanya. profil orang lain: GD yang dibuat untuk mereka.
-        const all = gj.entries || [];
-        setEntries(j.user.role === "admin" ? all : all.filter((e) => e.host === j.user.username));
+        setEntries(g.ok ? gj.entries || [] : []);
       })
       .catch((e) => setError(e.message));
   }, [osuId]);

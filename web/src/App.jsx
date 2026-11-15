@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDialog } from "./lib/useDialog.js";
 import { REQUESTS_ON } from "./lib/features.js";
-import { Link, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.jsx";
 import GDLog from "./pages/GDLog.jsx";
 import Landing from "./pages/Landing.jsx";
@@ -44,13 +44,20 @@ function titleFor(pathname, me) {
   return TITLES[pathname] ?? "Not found";
 }
 
+// halaman kerja butuh login; tamu dikembalikan ke landing
+function Guard({ me, children }) {
+  if (me === undefined) return null;
+  if (me === null) return <Navigate to="/" replace />;
+  return children;
+}
+
 export default function App() {
   const [me, setMe] = useState(undefined);
   const [menu, setMenu] = useState(false);
   const location = useLocation();
   const visibleLinks = REQUESTS_ON ? baseLinks : baseLinks.filter(([to]) => to !== "/requests");
   const links = visibleLinks;
-  const isAdmin = me?.role === "admin";
+  const showSettings = !!me;
 
   useEffect(() => {
     fetch("/api/me")
@@ -127,7 +134,7 @@ export default function App() {
         <div className="ml-auto hidden items-center gap-2.5 text-13 min-[900px]:flex">
           {me ? (
             <>
-              {isAdmin && (
+              {showSettings && (
                 <NavLink
                   to="/settings"
                   aria-label="Settings"
@@ -212,7 +219,7 @@ export default function App() {
                   >
                     Logged in as {me.username}
                   </Link>
-                  {isAdmin && (
+                  {showSettings && (
                     <NavLink className={DRAWER_LINK} to="/settings">
                       Settings
                     </NavLink>
@@ -243,9 +250,9 @@ export default function App() {
       <main className="mx-auto w-full max-w-[1100px] flex-1 px-4 pt-5 pb-14 md:px-6 md:pt-[22px] md:pb-16">
         <Routes>
           <Route path="/" element={me ? <Dashboard me={me} /> : <Landing />} />
-          <Route path="/log" element={<GDLog me={me} />} />
-          <Route path="/summary" element={<Summary me={me} />} />
-          <Route path="/track" element={<Tracks me={me} />} />
+          <Route path="/log" element={<Guard me={me}><GDLog me={me} /></Guard>} />
+          <Route path="/summary" element={<Guard me={me}><Summary me={me} /></Guard>} />
+          <Route path="/track" element={<Guard me={me}><Tracks me={me} /></Guard>} />
           <Route
             path="/requests"
             element={REQUESTS_ON ? <Requests me={me} /> : <NotFound />}
@@ -254,7 +261,7 @@ export default function App() {
             path="/requestform"
             element={REQUESTS_ON ? <Request me={me} /> : <NotFound />}
           />
-          <Route path="/settings" element={<Settings me={me} />} />
+          <Route path="/settings" element={<Guard me={me}><Settings me={me} /></Guard>} />
           <Route path="/u/:osuId" element={<Profile me={me} />} />
           <Route path="/u/:osuId/summary" element={<ProfilePage page="summary" />} />
           <Route path="/u/:osuId/log" element={<ProfilePage page="log" />} />

@@ -81,7 +81,7 @@ function useWide() {
   return wide;
 }
 
-export default function Summary({ me, nav = true, owner }) {
+export default function Summary({ me, nav = true, owner, user }) {
   const [entries, setEntries] = useState(null);
   const [names, setNames] = useState({});
   const [error, setError] = useState(null);
@@ -93,7 +93,7 @@ export default function Summary({ me, nav = true, owner }) {
   const wide = useWide();
 
   useEffect(() => {
-    fetch("/api/summary")
+    fetch(`/api/summary${user ? `?user=${encodeURIComponent(user)}` : ""}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error === "private" ? "This log is private." : j.error || "Couldn't load.");
