@@ -87,6 +87,7 @@ export default function Summary({ me, nav = true, owner, user }) {
   const [error, setError] = useState(null);
   const [year, setYear] = useState(null);
   const [statuses, setStatuses] = useState(STATUSES);
+  const [defaults, setDefaults] = useState({ mode: "all", statuses: [] });
   const [mode, setMode] = useState("all");
   const [page, setPage] = useState(0);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -100,6 +101,7 @@ export default function Summary({ me, nav = true, owner, user }) {
         setEntries(j.entries);
         setNames(j.names || {});
         if (j.defaults) {
+          setDefaults(j.defaults);
           if (j.defaults.mode) setMode(j.defaults.mode);
           if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
         }
@@ -196,14 +198,20 @@ export default function Summary({ me, nav = true, owner, user }) {
   const shownMappers = wide ? mappers.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE) : mappers;
 
   const toggleStatus = (s) =>
-    setStatuses((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    setStatuses((prev) => {
+      // dari All, klik satu status berarti tampilkan status itu saja
+      if (prev.length === STATUSES.length) return [s];
+      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      return next.length ? next : STATUSES; // semuanya dimatikan = tampilkan semua
+    });
 
   const activeFilters = (year === null ? 0 : 1) + (STATUSES.length - statuses.length) + (mode === "all" ? 0 : 1);
 
   const reset = () => {
     setYear(null);
-    setStatuses(STATUSES);
-    setMode("all");
+    // balik ke preferensi yang disimpan di Settings, bukan ke "semua"
+    setStatuses(defaults.statuses?.length ? defaults.statuses : STATUSES);
+    setMode(defaults.mode || "all");
   };
 
   return (

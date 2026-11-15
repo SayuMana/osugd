@@ -96,6 +96,7 @@ export default function GDLog({ me, user, owner }) {
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState(null);
   const [pendingScroll, setPendingScroll] = useState([]);
+  const [defaults, setDefaults] = useState({ mode: "all", statuses: [] });
   const [addOpen, setAddOpen] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState({});
   const [editing, setEditing] = useState(null);
@@ -138,6 +139,7 @@ export default function GDLog({ me, user, owner }) {
       if (j.defaults.mode) setActiveMode(j.defaults.mode);
       if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
     }
+    if (j.defaults) setDefaults(j.defaults);
   }, [showArchived, user]);
 
   const runImport = useCallback(
@@ -209,7 +211,12 @@ export default function GDLog({ me, user, owner }) {
   const pct = progress?.total ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
 
   const toggleStatus = (s) =>
-    setStatuses((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    setStatuses((prev) => {
+      // dari All, klik satu status berarti tampilkan status itu saja
+      if (prev.length === STATUSES.length) return [s];
+      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      return next.length ? next : STATUSES; // semuanya dimatikan = tampilkan semua
+    });
 
   const activeCount =
     (year ? 1 : 0) +
@@ -220,11 +227,12 @@ export default function GDLog({ me, user, owner }) {
 
   const resetFilters = () => {
     setYear(null);
-    setStatuses(STATUSES);
+    // balik ke preferensi yang disimpan di Settings, bukan ke "semua"
+    setStatuses(defaults.statuses?.length ? defaults.statuses : STATUSES);
     setDir("desc");
     setShowArchived(false);
     setGrouped(true);
-    setActiveMode("all");
+    setActiveMode(defaults.mode || "all");
   };
 
   async function addEntries(e) {
@@ -246,10 +254,11 @@ export default function GDLog({ me, user, owner }) {
     setText("");
     load();
     // semua baris masuk: dialog ditutup, halaman langsung menunjukkan hasilnya
-    const ok = j.results.filter((r) => r.ok && r.id);
+    const ok = j.results.filter((r) => r.ok && (r.ids?.length || r.id));
     if (ok.length && !j.results.some((r) => !r.ok)) {
       setAddOpen(false);
-      announce(ok);
+      // satu link bisa jadi beberapa diff: tiap diff punya barisnya sendiri
+      announce(ok.flatMap((r) => (r.ids?.length ? r.ids : [r.id]).map((id) => ({ id, gd_date: r.gd_date }))));
     }
   }
 

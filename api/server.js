@@ -491,15 +491,25 @@ app.post("/api/gd/batch", limit("osu"), async (req, res) => {
             }
 
             if (mine.length) {
-              const pick = mine[0];
-              const saved = await insertEntry(ownerId, full, pick);
-              const extra = mine.length > 1 ? ` · ${mine.length} diffs are yours, used the first` : "";
+              // satu set bisa punya beberapa diff milik user ini: masukkan semuanya
+              const ids = [];
+              let gd_date = null;
+              for (const pick of mine) {
+                const saved = await insertEntry(ownerId, full, pick);
+                if (saved?.id) ids.push(saved.id);
+                if (!gd_date && saved?.gd_date) gd_date = saved.gd_date;
+              }
+              const label =
+                mine.length === 1
+                  ? mine[0].version
+                  : `${mine.length} diffs (${mine.map((b) => b.version).join(", ")})`;
               return {
                 line,
                 ok: true,
-                id: saved?.id ?? null,
-                gd_date: saved?.gd_date ?? null,
-                message: `${full.title} (${pick.version}) · ${full.status}${extra}`,
+                id: ids[0] ?? null,
+                ids,
+                gd_date,
+                message: `${full.title} · ${label} · ${full.status}`,
               };
             }
 
