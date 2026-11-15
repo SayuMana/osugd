@@ -84,7 +84,7 @@ export default function Tracks({ me, owner, user }) {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [confirmRestore, setConfirmRestore] = useState(null);
 
-  const isOwner = me?.role === "admin";
+  const isOwner = !!me;
 
   const addRef = useDialog(adding, () => setAdding(false));
   const doneRef = useDialog(!!doneTrack, () => setDoneTrack(null));
@@ -340,7 +340,7 @@ export default function Tracks({ me, owner, user }) {
                 : `${total} ${total === 1 ? "map" : "maps"} on the board. Done maps move to the log.`}
           </p>
         </div>
-        {me?.role === "admin" && tracks !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/track`} />}
+        {me && tracks !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/track`} />}
       </div>
 
       <div className="mt-4 mb-4 flex gap-2">

@@ -216,7 +216,7 @@ export default function Summary({ me, nav = true, owner, user }) {
             {years.length > 1 ? ` · ${years[0]} to ${years[years.length - 1]}` : ""}
           </p>
         </div>
-        {me?.role === "admin" && <CopyLink to={`/u/${me.username}/summary`} />}
+        {me && <CopyLink to={`/u/${me.username}/summary`} />}
       </div>
 
       {nav && (

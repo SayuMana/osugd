@@ -170,7 +170,7 @@ export default function Dashboard({ me }) {
     );
   }
 
-  const isOwner = data.role === "admin";
+  const isOwner = true;
 
   async function syncNow() {
     setSyncing(true);

@@ -132,7 +132,7 @@ export default function Profile({ me }) {
         <Link className={btnGhost} to={`/u/${encodeURIComponent(name)}/track`}>
           See the track board
         </Link>
-        {me?.role === "admin" && <CopyLink />}
+        {me && <CopyLink />}
       </div>
 
       <section className={`${panel} mt-4`}>

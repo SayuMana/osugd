@@ -161,7 +161,7 @@ export default function GDLog({ me, user, owner }) {
   const editRef = useDialog(!!editing, () => setEditing(null));
 
   useEffect(() => {
-    if (me?.role === "admin" && entries?.length === 0 && !autoStarted.current) {
+    if (me && !user && entries?.length === 0 && !autoStarted.current) {
       autoStarted.current = true;
       runImport(0);
     }
@@ -307,7 +307,7 @@ export default function GDLog({ me, user, owner }) {
               : `${entries.length} GDs · ${new Set(entries.map((e) => e.host)).size} mappers`}
           </p>
         </div>
-        {me?.role === "admin" && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
+        {me && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
       </div>
 
       {years.length > 0 && (
@@ -340,7 +340,7 @@ export default function GDLog({ me, user, owner }) {
               )}
             </button>
 
-            {me?.role === "admin" && (
+            {me && (
               <button
                 className={`${filterToggle} text-white`}
                 onClick={() => {
@@ -394,7 +394,7 @@ export default function GDLog({ me, user, owner }) {
                 ))}
               </div>
 
-              {me?.role === "admin" && (
+              {me && (
                 <div className={filterGroup} role="group" aria-label="Archived entries">
                   <span className={filterLabel}>Archive</span>
                   <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-13 text-ink">
@@ -640,11 +640,11 @@ export default function GDLog({ me, user, owner }) {
         <div className={empty}>
           <p className={emptyTitle}>No entries yet</p>
           <p className={muted}>
-            {me?.role === "admin"
+            {me
               ? "Nothing has been imported or added by hand."
               : "Nothing in this log is public."}
           </p>
-          {me?.role === "admin" && (
+          {me && (
             <div className="mt-4 flex flex-wrap gap-2.5">
               <button className={btn} onClick={() => setAddOpen(true)}>
                 Add GD to log
@@ -709,7 +709,7 @@ export default function GDLog({ me, user, owner }) {
                   Status{arrow("status")}
                 </button>
               </th>
-              {me?.role === "admin" && (
+              {me && (
                 <th scope="col" className={TH}>
                   Edit
                 </th>
@@ -722,7 +722,7 @@ export default function GDLog({ me, user, owner }) {
                 <tr className="month-row">
                   <th
                     scope="colgroup"
-                    colSpan={me?.role === "admin" ? 7 : 6}
+                    colSpan={me ? 7 : 6}
                     className="border-y border-line px-2 py-3 text-13 font-semibold text-muted"
                   >
                     {group.label}
@@ -788,7 +788,7 @@ export default function GDLog({ me, user, owner }) {
                     <span className={statusChip(e.map_status)}>{e.map_status}</span>
                     {e.is_archived && <span className="ml-1.5 inline-block text-2xs text-muted">archived</span>}
                   </td>
-                  {me?.role === "admin" && (
+                  {me && (
                     <td className={TD}>
                       <button className={LINK_BTN} onClick={() => openEdit(e)}>
                         Edit

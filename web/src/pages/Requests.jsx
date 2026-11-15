@@ -56,7 +56,7 @@ export default function Requests({ me }) {
   const [saveMsg, setSaveMsg] = useState(null);
   const [dense, setDense] = useState(false);
 
-  const isOwner = me?.role === "admin";
+  const isOwner = !!me;
 
   const reqRef = useDialog(!!selected, () => setSelected(null));
 
