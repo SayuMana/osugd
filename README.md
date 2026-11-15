@@ -1,7 +1,6 @@
 # osugd
 
-A log of the guest difficulties I have mapped for osu! beatmaps. Each entry keeps the map, the difficulty, its status, and its star rating.
-
+A log of guest difficulties: the map each one went on, its status, and its star rating
 Live at https://osugd.vercel.app
 
 ## What it does
