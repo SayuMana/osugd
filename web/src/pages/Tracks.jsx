@@ -89,6 +89,9 @@ export default function Tracks({ me, owner, user }) {
   const addRef = useDialog(adding, () => setAdding(false));
   const doneRef = useDialog(!!doneTrack, () => setDoneTrack(null));
 
+  // target user lain hanya terkirim kalau admin mode nyala (dicek di server)
+  const tq = user ? `?user=${encodeURIComponent(user)}` : "";
+
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ page: String(page) });
     if (tab === "history") qs.set("history", "1");
@@ -111,7 +114,7 @@ export default function Tracks({ me, owner, user }) {
 
   async function update(id, body) {
     setBusy(id);
-    const r = await fetch(`/api/tracks/${id}`, {
+    const r = await fetch(`/api/tracks/${id}${tq}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -134,7 +137,7 @@ export default function Tracks({ me, owner, user }) {
 
   async function removeTrack(id) {
     setBusy(id);
-    const r = await fetch(`/api/tracks/${id}`, { method: "DELETE" });
+    const r = await fetch(`/api/tracks/${id}${tq}`, { method: "DELETE" });
     setBusy(null);
     if (r.ok) {
       setConfirmDelete(null);
@@ -183,7 +186,7 @@ export default function Tracks({ me, owner, user }) {
       return;
     }
 
-    const r = await fetch("/api/tracks", {
+    const r = await fetch(`/api/tracks${tq}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

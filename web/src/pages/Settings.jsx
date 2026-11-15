@@ -143,6 +143,24 @@ export default function Settings({ me }) {
               </span>
             </label>
           ))}
+
+          {/* hanya admin: izin mengurus log dan board user lain */}
+          {me?.role === "admin" && (
+            <label className={SETTING}>
+              <input
+                className="mt-0.5 h-4 w-4 flex-none accent-accent"
+                type="checkbox"
+                checked={!!s.admin_mode}
+                onChange={(e) => set("admin_mode", e.target.checked)}
+              />
+              <span className="flex flex-col gap-px">
+                <span className="text-13">Admin mode</span>
+                <span className="text-xs text-muted">
+                  Add and delete GDs or tracks on someone else's pages.
+                </span>
+              </span>
+            </label>
+          )}
         </section>
 
         <section className={panel}>

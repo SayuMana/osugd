@@ -106,6 +106,9 @@ export default function GDLog({ me, user, owner }) {
   const autoStarted = useRef(false);
   const defaultsApplied = useRef(false);
 
+  // target user lain hanya terkirim kalau admin mode nyala (dicek di server)
+  const tq = user ? `?user=${encodeURIComponent(user)}` : "";
+
   const load = useCallback(async () => {
     const qs = new URLSearchParams();
     if (user) qs.set("user", user);
@@ -217,7 +220,7 @@ export default function GDLog({ me, user, owner }) {
     if (e) e.preventDefault();
     setBusy(true);
     setResults(null);
-    const r = await fetch("/api/gd/batch", {
+    const r = await fetch(`/api/gd/batch${tq}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -234,7 +237,7 @@ export default function GDLog({ me, user, owner }) {
   }
 
   async function confirmEntry(index, r) {
-    const res = await fetch("/api/gd/force", {
+    const res = await fetch(`/api/gd/force${tq}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ beatmapset_id: r.beatmapset_id, beatmap_id: r.beatmap_id }),
@@ -260,7 +263,7 @@ export default function GDLog({ me, user, owner }) {
   async function resyncEntry() {
     setResyncing(true);
     setResyncMsg(null);
-    const r = await fetch(`/api/gd/${editing.id}/resync`, { method: "POST" });
+    const r = await fetch(`/api/gd/${editing.id}/resync${tq}`, { method: "POST" });
     const j = await r.json();
     setResyncing(false);
     setResyncMsg(j.message || j.error || "Failed.");
@@ -272,7 +275,7 @@ export default function GDLog({ me, user, owner }) {
 
   async function saveNote(e) {
     e.preventDefault();
-    await fetch(`/api/gd/${editing.id}`, {
+    await fetch(`/api/gd/${editing.id}${tq}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note, is_archived: !!editing.is_archived }),
@@ -286,7 +289,7 @@ export default function GDLog({ me, user, owner }) {
       setConfirmDel(true);
       return;
     }
-    await fetch(`/api/gd/${editing.id}`, { method: "DELETE" });
+    await fetch(`/api/gd/${editing.id}${tq}`, { method: "DELETE" });
     setEditing(null);
     load();
   }

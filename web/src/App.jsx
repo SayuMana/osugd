@@ -263,9 +263,9 @@ export default function App() {
           />
           <Route path="/settings" element={<Guard me={me}><Settings me={me} /></Guard>} />
           <Route path="/u/:osuId" element={<Profile me={me} />} />
-          <Route path="/u/:osuId/summary" element={<ProfilePage page="summary" />} />
-          <Route path="/u/:osuId/log" element={<ProfilePage page="log" />} />
-          <Route path="/u/:osuId/track" element={<ProfilePage page="track" />} />
+          <Route path="/u/:osuId/summary" element={<ProfilePage page="summary" me={me} />} />
+          <Route path="/u/:osuId/log" element={<ProfilePage page="log" me={me} />} />
+          <Route path="/u/:osuId/track" element={<ProfilePage page="track" me={me} />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

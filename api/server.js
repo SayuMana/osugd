@@ -177,7 +177,38 @@ app.get("/api/auth/callback", async (req, res) => {
   res.redirect(WEB_ORIGIN);
 });
 
-app.get("/api/me", (req, res) => res.json(readSession(req) || null));
+app.get("/api/me", async (req, res) => {
+  const s = readSession(req);
+  if (!s) return res.json(null);
+  if (s.role !== "admin") return res.json({ ...s, admin_mode: false });
+
+  const { data } = await db
+    .from("user_settings")
+    .select("admin_mode")
+    .eq("owner_id", s.osu_id)
+    .maybeSingle();
+  res.json({ ...s, admin_mode: data?.admin_mode === true });
+});
+
+// data siapa yang disentuh: diri sendiri, atau user lain kalau admin mode nyala
+async function actorId(req, s) {
+  const q = String(req.query.user || "").trim();
+  if (!q || s?.role !== "admin") return s.osu_id;
+
+  const { data: set } = await db
+    .from("user_settings")
+    .select("admin_mode")
+    .eq("owner_id", s.osu_id)
+    .maybeSingle();
+  if (set?.admin_mode !== true) return s.osu_id;
+
+  const base = db.from("users").select("osu_id");
+  const { data: u } = /^\d+$/.test(q)
+    ? await base.eq("osu_id", Number(q)).maybeSingle()
+    : await base.ilike("username", q.replace(/[\%_]/g, (c) => "\\" + c)).maybeSingle();
+  return u?.osu_id ?? s.osu_id;
+}
+
 
 app.post("/api/auth/logout", (req, res) => {
   res.setHeader("Set-Cookie", "sid=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0");
@@ -427,6 +458,7 @@ const PUBLISHED = new Set(["ranked", "approved", "loved", "qualified"]);
 app.post("/api/gd/batch", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const lines = String(req.body?.text || "")
     .split("\n")
@@ -444,7 +476,7 @@ app.post("/api/gd/batch", async (req, res) => {
       const out = await Promise.all(
         group.map(async (line) => {
           try {
-            const { full, all, mine, wanted } = await resolveLink(token, line, s.osu_id);
+            const { full, all, mine, wanted } = await resolveLink(token, line, ownerId);
 
             if (PUBLISHED.has(full.status)) {
               return {
@@ -456,7 +488,7 @@ app.post("/api/gd/batch", async (req, res) => {
 
             if (mine.length) {
               const pick = mine[0];
-              await insertEntry(s.osu_id, full, pick);
+              await insertEntry(ownerId, full, pick);
               const extra = mine.length > 1 ? ` · ${mine.length} diffs are yours, used the first` : "";
               return {
                 line,
@@ -508,6 +540,7 @@ app.post("/api/gd/batch", async (req, res) => {
 app.patch("/api/gd/:id", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const patch = {};
   if (typeof req.body?.note === "string") patch.note = req.body.note.slice(0, 500);
@@ -521,7 +554,7 @@ app.patch("/api/gd/:id", async (req, res) => {
     .from("gd_entries")
     .update(patch)
     .eq("id", Number(req.params.id))
-    .eq("owner_id", s.osu_id)
+    .eq("owner_id", ownerId)
     .select("id,note,is_archived");
   if (error) return res.status(500).json({ error: error.message });
   if (!data?.length) return res.status(404).json({ error: "Entry not found." });
@@ -531,9 +564,10 @@ app.patch("/api/gd/:id", async (req, res) => {
 app.delete("/api/gd/:id", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const id = Number(req.params.id);
-  const del = await db.from("gd_entries").delete().eq("id", id).eq("owner_id", s.osu_id);
+  const del = await db.from("gd_entries").delete().eq("id", id).eq("owner_id", ownerId);
   if (del.error) return res.status(500).json({ error: del.error.message });
 
   const { data: still } = await db.from("gd_entries").select("id").eq("id", id).maybeSingle();
@@ -544,13 +578,14 @@ app.delete("/api/gd/:id", async (req, res) => {
 app.post("/api/gd/:id/resync", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const id = Number(req.params.id);
   const { data: row } = await db
     .from("gd_entries")
     .select("id,beatmapset_id,beatmap_id")
     .eq("id", id)
-    .eq("owner_id", s.osu_id)
+    .eq("owner_id", ownerId)
     .maybeSingle();
   if (!row) return res.status(404).json({ error: "Entry not found." });
   if (!row.beatmapset_id) return res.status(400).json({ error: "This entry has no beatmap link to sync." });
@@ -574,7 +609,7 @@ app.post("/api/gd/:id/resync", async (req, res) => {
         diff.difficulty_rating != null ? Number(diff.difficulty_rating.toFixed(2)) : null;
     }
 
-    const { error } = await db.from("gd_entries").update(patch).eq("id", id).eq("owner_id", s.osu_id);
+    const { error } = await db.from("gd_entries").update(patch).eq("id", id).eq("owner_id", ownerId);
     if (error) throw new Error(error.message);
     res.json({ ok: true, status: full.status, message: `${full.title} is ${full.status} now.` });
   } catch (e) {
@@ -604,7 +639,7 @@ app.get("/api/settings", async (req, res) => {
   res.json(created);
 });
 
-const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "profile_public", "queue_open", "sync_enabled"];
+const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "profile_public", "queue_open", "sync_enabled", "admin_mode"];
 
 app.patch("/api/settings", async (req, res) => {
   const s = readSession(req);
@@ -760,7 +795,7 @@ app.post("/api/requests", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
   const { data: settings } = await db
     .from("user_settings")
     .select("*")
@@ -844,7 +879,7 @@ app.patch("/api/requests/:id", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
   const id = Number(req.params.id);
   const action = String(req.body?.action || "");
 
@@ -926,7 +961,7 @@ app.post("/api/requests/:id/restore", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
   const { error } = await db
     .from("requests")
     .update({ status: "pending", archived_at: null, archived_reason: null })
@@ -987,7 +1022,7 @@ app.post("/api/tracks", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
 
   // mode beatmap: banyak link sekaligus, difficulty per map
   const items = Array.isArray(req.body?.items)
@@ -1096,7 +1131,7 @@ app.delete("/api/tracks/:id", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
   const id = Number(req.params.id);
   const { data, error } = await db
     .from("gd_tracks")
@@ -1113,7 +1148,7 @@ app.patch("/api/tracks/:id", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
 
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
   const id = Number(req.params.id);
   const status = req.body?.track_status;
 
@@ -1254,6 +1289,7 @@ app.patch("/api/tracks/:id", async (req, res) => {
 app.post("/api/gd/force", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const set = Number(req.body?.beatmapset_id);
   const diff = Number(req.body?.beatmap_id);
@@ -1265,7 +1301,7 @@ app.post("/api/gd/force", async (req, res) => {
     const pick = (full.beatmaps || []).find((b) => b.id === diff);
     if (!pick) return res.status(404).json({ error: "That difficulty is not in this set." });
 
-    await insertEntry(s.osu_id, full, pick);
+    await insertEntry(ownerId, full, pick);
     res.json({ ok: true, message: `${full.title} (${pick.version}) · ${full.status}` });
   } catch (e) {
     res.status(502).json({ error: e.message });
@@ -1344,11 +1380,12 @@ async function runSync(ownerId) {
 app.post("/api/sync", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const { data: settings } = await db
     .from("user_settings")
     .select("sync_enabled")
-    .eq("owner_id", s.osu_id)
+    .eq("owner_id", ownerId)
     .maybeSingle();
   if (settings?.sync_enabled === false) return res.json({ skipped: true });
 
@@ -1389,6 +1426,7 @@ app.get("/api/cron/sync", async (req, res) => {
 app.post("/api/import", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
+  const ownerId = await actorId(req, s);
 
   const offset = Math.max(0, Number(req.query.offset) || 0);
   try {
@@ -1405,7 +1443,7 @@ app.post("/api/import", async (req, res) => {
     const existing = await db
       .from("gd_entries")
       .select("beatmapset_id")
-      .eq("owner_id", s.osu_id)
+      .eq("owner_id", ownerId)
       .not("beatmapset_id", "is", null);
     if (existing.error) throw new Error(existing.error.message);
     const seen = new Set((existing.data || []).map((r) => r.beatmapset_id));
@@ -1461,7 +1499,7 @@ app.get("/api/dashboard", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.status(401).json({ error: "Log in first." });
   const isOwner = true;
-  const ownerId = s.osu_id;
+  const ownerId = await actorId(req, s);
 
   const { data: settings } = await db
     .from("user_settings")

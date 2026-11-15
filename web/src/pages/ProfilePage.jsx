@@ -8,7 +8,7 @@ import { btnGhost, empty, emptyTitle, h1, muted } from "../ui.js";
 const NAV_ROW = "mb-4 flex flex-wrap gap-2.5";
 
 // /u/{nama}/log dan /u/{nama}/track: tampilan tamu dari halaman aslinya
-export default function ProfilePage({ page }) {
+export default function ProfilePage({ page, me }) {
   const { osuId } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -59,6 +59,8 @@ export default function ProfilePage({ page }) {
 
   const name = data.user.username;
   const link = (path) => `/u/${encodeURIComponent(name)}${path}`;
+  // admin dengan admin mode nyala boleh bertindak atas nama user ini
+  const acting = me?.role === "admin" && me?.admin_mode === true ? me : null;
 
   return (
     <>
@@ -83,10 +85,10 @@ export default function ProfilePage({ page }) {
         )}
       </div>
 
-      {/* me={null} bikin semua tombol owner hilang: add, edit, delete, bring back */}
+      {/* admin dengan admin mode nyala boleh bertindak atas nama user ini */}
       {page === "summary" && <Summary me={null} nav={false} owner={name} user={name} />}
-      {page === "log" && <GDLog me={null} user={name} owner={name} />}
-      {page === "track" && <Tracks me={null} owner={name} user={name} />}
+      {page === "log" && <GDLog me={acting} user={name} owner={name} />}
+      {page === "track" && <Tracks me={acting} owner={name} user={name} />}
     </>
   );
 }
