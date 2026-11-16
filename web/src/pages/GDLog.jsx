@@ -987,17 +987,15 @@ export default function GDLog({ me, user, owner }) {
                           <span className="map-title block">{e.title}</span>
                         )}
                         <span className="map-artist block text-xs text-muted">{e.artist}</span>
-                        {grouping !== "month" && (
-                          <span className="block text-2xs text-muted">
-                            {e.gd_date
-                              ? new Date(`${e.gd_date}T00:00:00`).toLocaleDateString("en-GB", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })
-                              : "No date"}
-                          </span>
-                        )}
+                        <span className="block text-2xs text-muted">
+                          {e.gd_date
+                            ? new Date(`${e.gd_date}T00:00:00`).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })
+                            : "No date"}
+                        </span>
                       </div>
                     </div>
                   </td>
