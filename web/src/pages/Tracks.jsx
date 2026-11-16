@@ -322,6 +322,21 @@ export default function Tracks({ me, owner, user }) {
           <button className={btnGhost} onClick={() => openDone(t)} disabled={busy === t.id}>
             Done
           </button>
+          {confirmDelete === t.id ? (
+            <span className="flex items-center gap-2 text-xs text-muted">
+              Delete?
+              <button className={LINK_BTN} onClick={() => removeTrack(t.id)} disabled={busy === t.id}>
+                Yes
+              </button>
+              <button className={LINK_BTN} onClick={() => setConfirmDelete(null)}>
+                No
+              </button>
+            </span>
+          ) : (
+            <button className={LINK_BTN} onClick={() => setConfirmDelete(t.id)}>
+              Delete
+            </button>
+          )}
         </div>
       )}
     </li>

@@ -159,10 +159,9 @@
   }
 
   @media (max-width: 720px) {
-    /* kolom host: sekarang ke-4 karena kolom mode nambah di kiri */
-    .gd-table th:nth-child(4),
-    .gd-table td:nth-child(4) {
-      display: none;
+    /* kolom host tetap tampil, tapi boleh turun baris di layar sempit */
+    .gd-table td:nth-child(4) a {
+      white-space: normal;
     }
   }
 
@@ -190,6 +189,7 @@
       grid-template-areas:
         "mode map star"
         "mode diff status"
+        "host host host"
         "actions actions actions";
       gap: 6px 12px;
       padding: 12px 0;
@@ -238,6 +238,16 @@
     .gd-table td:nth-child(6) {
       grid-area: status;
       justify-self: end;
+    }
+
+    .gd-table td:nth-child(4) {
+      grid-area: host;
+      font-size: 11px;
+      color: var(--color-muted);
+    }
+
+    .gd-table td:nth-child(4)::before {
+      content: "Hosted by ";
     }
 
     .gd-table td:nth-child(7) {

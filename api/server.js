@@ -236,11 +236,17 @@ app.get("/api/og", limit("read"), async (req, res) => {
   let name = raw;
 
   const { data: user } = raw
-    ? await db
-        .from("users")
-        .select("osu_id,username")
-        .ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c))
-        .maybeSingle()
+    ? await (async () => {
+        const cols = "osu_id,username";
+        const byName = await db
+          .from("users")
+          .select(cols)
+          .ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c))
+          .maybeSingle();
+        if (byName.data) return { data: byName.data };
+        if (!/^\d+$/.test(raw)) return { data: null };
+        return db.from("users").select(cols).eq("osu_id", Number(raw)).maybeSingle();
+      })()
     : { data: null };
 
   if (user) {
@@ -364,7 +370,7 @@ app.get("/api/gd", limit("read"), async (req, res) => {
 
   let q = db
     .from("gd_entries")
-    .select(withMode("id,beatmapset_id,beatmap_id,artist,title,diff_name,host,map_status,star_rating,gd_date,note,is_archived,source"))
+    .select(withMode("id,beatmapset_id,beatmap_id,artist,title,diff_name,host,map_status,star_rating,gd_date,note,is_archived,source,synced_at"))
     .eq("owner_id", ownerId)
     .order("gd_date", { ascending: false });
   if (!privileged || req.query.archived !== "1") q = q.eq("is_archived", false);
@@ -376,16 +382,38 @@ app.get("/api/gd", limit("read"), async (req, res) => {
   res.json({ entries, defaults: await ownerDefaults(ownerId), user: owner.username });
 });
 
+// cari player buat kotak search di navbar
+app.get("/api/users", limit("read"), async (req, res) => {
+  const q = String(req.query.q || "").trim().slice(0, 40);
+  if (q.length < 2) return res.json({ users: [] });
+
+  const { data } = await db
+    .from("users")
+    .select("osu_id,username,avatar_url")
+    .ilike("username", `%${q.replace(/[\\%_]/g, (c) => "\\" + c)}%`)
+    .order("username")
+    .limit(8);
+  res.json({ users: data || [] });
+});
+
 app.get("/api/users/:osuId", limit("read"), async (req, res) => {
   const s = readSession(req);
   // terima osu id maupun username, biar link bisa dibaca (/u/sayumana)
   const raw = String(req.params.osuId || "").trim().slice(0, 64);
   if (!raw) return res.status(400).json({ error: "Bad user id." });
 
-  const base = db.from("users").select("osu_id,username,avatar_url,role");
-  const { data: user } = /^\d+$/.test(raw)
-    ? await base.eq("osu_id", Number(raw)).maybeSingle()
-    : await base.ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
+  // username dulu: nickname boleh angka semua (contoh "789"), id osu selalu jauh lebih besar
+  const cols = "osu_id,username,avatar_url,role";
+  const byName = await db
+    .from("users")
+    .select(cols)
+    .ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c))
+    .maybeSingle();
+  let user = byName.data;
+  if (!user && /^\d+$/.test(raw)) {
+    const byId = await db.from("users").select(cols).eq("osu_id", Number(raw)).maybeSingle();
+    user = byId.data;
+  }
   if (!user) return res.status(404).json({ error: "That user has not logged in here." });
 
   const id = user.osu_id;

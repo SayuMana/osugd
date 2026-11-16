@@ -282,10 +282,13 @@ export default function Dashboard({ me }) {
           <span className="block font-mono text-xl font-medium leading-tight">{stats.mappers}</span>
           <span className="block text-xs text-muted">mappers</span>
         </div>
-        <div className="min-w-0 p-3.5">
+        <Link
+          className="min-w-0 p-3.5 hover:bg-panel2"
+          to={`/log?month=${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`}
+        >
           <span className="block font-mono text-xl font-medium leading-tight">+{stats.this_month}</span>
           <span className="block text-xs text-muted">this month</span>
-        </div>
+        </Link>
       </div>
 
       <div className="mt-4 grid grid-cols-2 items-stretch gap-4 max-[900px]:grid-cols-1">

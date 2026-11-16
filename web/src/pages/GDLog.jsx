@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { runImport as runImportChunks } from "../lib/import.js";
 import { useDialog } from "../lib/useDialog.js";
 import Status from "../components/Status.jsx";
-import { TAB, TAB_OFF, TAB_ON, btn, btnDanger, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, possessive, isPrivate, input, muted, statusChip } from "../ui.js";
+import { TAB, TAB_OFF, TAB_ON, btn, btnDanger, btnGhost, empty, emptyTitle, filterGroup, filterLabel, filterToggle, h1, possessive, isPrivate, input, inputFit, muted, statusChip } from "../ui.js";
 import ModeIcon from "../components/ModeIcon.jsx";
 import CopyLink from "../components/CopyLink.jsx";
 import { MODES, modeKey, modeRank } from "../lib/mode.js";
@@ -37,6 +37,17 @@ const starColor = (v) => {
   if (v < 5.3) return "#FF4E6F";
   if (v < 6.5) return "#C645B8";
   return "#6563DE";
+};
+
+// kapan status map terakhir dicek ke osu
+const relTime = (iso) => {
+  if (!iso) return null;
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (!Number.isFinite(s) || s < 0) return null;
+  if (s < 90) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
 };
 
 const monthLabel = (e) =>
@@ -108,6 +119,13 @@ export default function GDLog({ me, user, owner }) {
   const [flash, setFlash] = useState(null);
   const [pendingScroll, setPendingScroll] = useState([]);
   const [defaults, setDefaults] = useState({ mode: "all", statuses: [] });
+  const [q, setQ] = useState("");
+  // /log?month=2026-11 : dipakai tile "+1 this month" di dashboard
+  const [month, setMonth] = useState(
+    () => new URLSearchParams(window.location.search).get("month") || null
+  );
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmChecked, setConfirmChecked] = useState({});
   const [editing, setEditing] = useState(null);
@@ -147,8 +165,11 @@ export default function GDLog({ me, user, owner }) {
 
     if (!defaultsApplied.current && j.defaults) {
       defaultsApplied.current = true;
-      if (j.defaults.mode) setActiveMode(j.defaults.mode);
-      if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
+      // dari /log?month=... : tampilkan semua status, kalau tidak bulannya bisa kosong
+      if (!month) {
+        if (j.defaults.mode) setActiveMode(j.defaults.mode);
+        if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
+      }
     }
     if (j.defaults) setDefaults(j.defaults);
   }, [showArchived, user]);
@@ -193,12 +214,18 @@ export default function GDLog({ me, user, owner }) {
 
   const years = entries ? [...new Set(entries.map(yearOf))] : [];
   const activeYear = year ?? "all";
+  const needle = q.trim().toLowerCase();
   const filtered = entries
     ? entries.filter(
         (e) =>
           (activeYear === "all" || yearOf(e) === activeYear) &&
           (activeMode === "all" || modeKey(e.game_mode) === activeMode) &&
-          statuses.includes(e.map_status)
+          statuses.includes(e.map_status) &&
+          (!month || (e.gd_date || "").slice(0, 7) === month) &&
+          (!needle ||
+            [e.title, e.artist, e.host, e.diff_name].some((v) =>
+              String(v || "").toLowerCase().includes(needle)
+            ))
       )
     : [];
   const cmp = makeCompare(sortKey, sortDir);
@@ -234,7 +261,20 @@ export default function GDLog({ me, user, owner }) {
     (statuses.length !== STATUSES.length ? 1 : 0) +
     (dir !== "desc" ? 1 : 0) +
     (grouped ? 0 : 1) +
-    (activeMode !== "all" ? 1 : 0);
+    (activeMode !== "all" ? 1 : 0) +
+    (month ? 1 : 0) +
+    (q.trim() ? 1 : 0);
+
+  async function syncNow() {
+    setSyncing(true);
+    setSyncMsg(null);
+    const r = await fetch(`/api/sync${tq}`, { method: "POST" });
+    const j = await r.json().catch(() => ({}));
+    setSyncing(false);
+    if (!r.ok) return setSyncMsg(j.error || "Couldn't sync.");
+    setSyncMsg(`Checked ${j.sets ?? 0} sets, ${j.updated ?? 0} changed.`);
+    load();
+  }
 
   const resetFilters = () => {
     setYear(null);
@@ -244,6 +284,8 @@ export default function GDLog({ me, user, owner }) {
     setShowArchived(false);
     setGrouped(true);
     setActiveMode(defaults.mode || "all");
+    setMonth(null);
+    setQ("");
   };
 
   async function addEntries(e) {
@@ -369,7 +411,9 @@ export default function GDLog({ me, user, owner }) {
               : `${entries.length} GDs · ${new Set(entries.map((e) => e.host)).size} mappers`}
           </p>
         </div>
-        {me && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
+        <div className="flex flex-wrap items-center gap-2">
+          {me && entries !== null && !isPrivate(error) && <CopyLink to={`/u/${me.username}/log`} />}
+        </div>
       </div>
 
       {flash && (
@@ -388,8 +432,8 @@ export default function GDLog({ me, user, owner }) {
       )}
 
       {years.length > 0 && (
-        <div className="mt-4 flex flex-col items-start gap-2.5">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-4 flex w-full flex-col gap-2.5">
+          <div className="flex w-full flex-wrap items-center gap-2">
             <button
               className={filterToggle}
               aria-expanded={filtersOpen}
@@ -418,6 +462,12 @@ export default function GDLog({ me, user, owner }) {
             </button>
 
             {me && (
+              <button className={filterToggle} onClick={syncNow} disabled={syncing}>
+                {syncing ? "Syncing" : "Sync"}
+              </button>
+            )}
+
+            {me && (
               <button
                 className={`${filterToggle} text-white`}
                 onClick={() => {
@@ -428,10 +478,36 @@ export default function GDLog({ me, user, owner }) {
                 Add GD to log
               </button>
             )}
+
+            <input
+              className={`${inputFit} ml-auto w-[200px] py-1.5 max-[640px]:w-full`}
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label="Search the log"
+              placeholder="Search map, artist, host"
+            />
           </div>
+
+          <Status as="p" className={`${muted} mt-1`}>
+            {syncMsg}
+          </Status>
 
           {filtersOpen && (
             <div className="flex w-full flex-col gap-2 rounded-lg border border-line bg-panel p-3" id="filter-panel">
+              {month && (
+                <div className={filterGroup} role="group" aria-label="Filter by month">
+                  <span className={filterLabel}>Month</span>
+                  <button className={`${TAB} ${TAB_ON}`} onClick={() => setMonth(null)}>
+                    {new Date(`${month}-01T00:00:00`).toLocaleDateString("en-GB", {
+                      month: "long",
+                      year: "numeric",
+                    })}{" "}
+                    ×
+                  </button>
+                </div>
+              )}
+
               <div className={filterGroup} role="group" aria-label="Filter by year">
                 <span className={filterLabel}>Year</span>
                 <button
@@ -664,6 +740,12 @@ export default function GDLog({ me, user, owner }) {
                 aria-label="Note"
                 rows={4}
               />
+              <p className={`${muted} mt-3`}>
+                {editing.synced_at
+                  ? `Status checked ${relTime(editing.synced_at)} (${new Date(editing.synced_at).toLocaleString()}).`
+                  : "Status has not been checked against osu! yet."}
+              </p>
+
               <div className="mt-4 flex flex-wrap gap-2">
                 <button className={btn}>Save note</button>
                 <button type="button" className={btnGhost} onClick={resyncEntry} disabled={resyncing}>

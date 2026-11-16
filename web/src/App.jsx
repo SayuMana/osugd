@@ -10,6 +10,7 @@ import Request from "./pages/Request.jsx";
 import Requests from "./pages/Requests.jsx";
 import Tracks from "./pages/Tracks.jsx";
 import Summary from "./pages/Summary.jsx";
+import PlayerSearch from "./components/PlayerSearch.jsx";
 import Profile from "./pages/Profile.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -185,6 +186,7 @@ export default function App() {
                   </svg>
                 </NavLink>
               )}
+              <PlayerSearch />
               <Link
                 className="flex items-center gap-2.5 text-muted underline decoration-line underline-offset-2 hover:text-accent hover:decoration-accent"
                 to={`/u/${encodeURIComponent(me.username)}`}
