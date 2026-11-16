@@ -30,6 +30,47 @@ const DRAWER_LINK = "rounded px-2.5 py-3 text-sm text-muted no-underline hover:b
 const BTN = "inline-flex min-h-11 cursor-pointer items-center justify-center rounded border border-transparent bg-accent px-3.5 text-13 font-medium text-accent-ink no-underline hover:brightness-[1.06]";
 const BTN_GHOST = "inline-flex min-h-11 cursor-pointer items-center justify-center rounded border border-strong bg-transparent px-3.5 text-13 font-medium text-ink no-underline hover:bg-panel2";
 
+// ikon gear dipakai di desktop dan mobile, jadi satu tempat
+function Gear() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+const ICON_BTN =
+  "inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded border p-0 hover:bg-panel2 hover:text-ink";
+
 const TITLES = {
   "/log": "GD Log",
   "/summary": "Summary",
@@ -66,6 +107,7 @@ export default function App() {
   const [me, setMe] = useState(undefined);
   const [site, setSite] = useState(undefined);
   const [menu, setMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const visibleLinks = REQUESTS_ON ? baseLinks : baseLinks.filter(([to]) => to !== "/requests");
   const links = visibleLinks;
@@ -93,6 +135,7 @@ export default function App() {
 
   useEffect(() => {
     setMenu(false);
+    setSearchOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -170,20 +213,7 @@ export default function App() {
                     } hover:bg-panel2 hover:text-ink`
                   }
                 >
-                  <svg
-                    viewBox="0 0 24 24"
-                    width="18"
-                    height="18"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                  </svg>
+                  <Gear />
                 </NavLink>
               )}
               <PlayerSearch />
@@ -202,16 +232,49 @@ export default function App() {
         </div>
 
         {me ? (
-          <button
-            className="ml-auto inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded border border-line bg-transparent p-0 hover:border-strong min-[900px]:hidden"
-            aria-label="Open account menu"
-            aria-expanded={menu}
-            aria-controls="nav-drawer"
-            onClick={() => setMenu(true)}
-          >
-            <img className="block rounded" src={me.avatar} alt="" width="28" height="28" />
-          </button>
+          <div className="ml-auto flex items-center gap-1.5 min-[900px]:hidden">
+            <button
+              type="button"
+              className={`${ICON_BTN} ${
+                searchOpen ? "border-strong bg-panel2 text-ink" : "border-transparent text-muted"
+              }`}
+              aria-label="Search players"
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen((v) => !v)}
+            >
+              <SearchIcon />
+            </button>
+
+            {showSettings && (
+              <NavLink
+                to="/settings"
+                aria-label="Settings"
+                title="Settings"
+                className={({ isActive }) =>
+                  `${ICON_BTN} ${isActive ? "border-strong bg-panel2 text-ink" : "border-transparent text-muted"}`
+                }
+              >
+                <Gear />
+              </NavLink>
+            )}
+
+            <button
+              className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded border border-line bg-transparent p-0 hover:border-strong"
+              aria-label="Open account menu"
+              aria-expanded={menu}
+              aria-controls="nav-drawer"
+              onClick={() => setMenu(true)}
+            >
+              <img className="block rounded" src={me.avatar} alt="" width="28" height="28" />
+            </button>
+          </div>
         ) : null}
+
+        {me && searchOpen && (
+          <div className="mt-2 border-t border-line pt-2.5 min-[900px]:hidden">
+            <PlayerSearch full onPick={() => setSearchOpen(false)} />
+          </div>
+        )}
       </header>
 
       {menu && (
@@ -245,11 +308,6 @@ export default function App() {
                   >
                     Logged in as {me.username}
                   </Link>
-                  {showSettings && (
-                    <NavLink className={DRAWER_LINK} to="/settings">
-                      Settings
-                    </NavLink>
-                  )}
                   <button className={BTN_GHOST} onClick={logout}>
                     Log out
                   </button>

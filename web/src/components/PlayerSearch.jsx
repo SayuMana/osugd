@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { input, muted } from "../ui.js";
 
-// cari player lain: ketik nama, pilih, langsung ke profil publiknya
-export default function PlayerSearch() {
+// cari player lain: ketik nama, pilih, langsung ke profil publiknya.
+// full = versi bar selebar layar buat header mobile.
+export default function PlayerSearch({ full = false, onPick }) {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState([]);
   const [open, setOpen] = useState(false);
@@ -41,15 +42,17 @@ export default function PlayerSearch() {
     setQ("");
     setHits([]);
     setOpen(false);
+    onPick?.();
     nav(`/u/${encodeURIComponent(name)}`);
   }
 
   return (
-    <div className="relative" ref={box} role="search">
+    <div className={full ? "relative w-full" : "relative"} ref={box} role="search">
       <input
-        className={`${input} w-[170px] py-1.5 text-13`}
+        className={full ? `${input} w-full py-2 text-13` : `${input} w-[170px] py-1.5 text-13`}
         type="search"
         value={q}
+        autoFocus={full}
         aria-label="Find a player"
         placeholder="Find a player"
         onChange={(e) => setQ(e.target.value)}
@@ -61,7 +64,13 @@ export default function PlayerSearch() {
       />
 
       {open && (
-        <ul className="absolute right-0 top-[calc(100%+4px)] z-30 m-0 w-[240px] list-none rounded-lg border border-line bg-panel p-1 shadow-lg">
+        <ul
+          className={
+            full
+              ? "mt-1.5 max-h-[50vh] w-full list-none overflow-auto rounded-lg border border-line bg-panel p-1"
+              : "absolute right-0 top-[calc(100%+4px)] z-30 m-0 w-[240px] list-none rounded-lg border border-line bg-panel p-1 shadow-lg"
+          }
+        >
           {hits.length === 0 ? (
             <li className={`px-2 py-1.5 text-xs ${muted}`}>No player by that name.</li>
           ) : (
