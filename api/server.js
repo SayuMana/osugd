@@ -387,8 +387,10 @@ app.get("/api/gd", limit("read"), async (req, res) => {
   res.json({ entries, defaults: await ownerDefaults(ownerId), user: owner.username });
 });
 
-// cari player buat kotak search di navbar
+// cari player buat kotak search di navbar (butuh login: ini daftar akun, bukan profil publik)
 app.get("/api/users", limit("read"), async (req, res) => {
+  if (!readSession(req)) return res.status(401).json({ error: "Log in first." });
+
   const q = String(req.query.q || "").trim().slice(0, 40);
   if (q.length < 2) return res.json({ users: [] });
 

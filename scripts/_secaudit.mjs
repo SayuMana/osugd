@@ -91,6 +91,24 @@ const guestTracks = (await call("/api/tracks?user=SayuMana", null))[1];
 const tlist = guestTracks?.tracks || guestTracks?.rows || [];
 check("guest track payload tanpa note", tlist.length ? tlist.some((t) => "note" in t) : "n/a", false);
 
+// --- 6b. endpoint baru: search player, site, preview link
+const [searchGuest, searchBody] = await call("/api/users?q=a", null);
+check("guest GET /api/users (search)", searchGuest, 401);
+check("search membatasi hasil", (searchBody.users || []).length <= 8, true);
+
+const [xssSearch, xssBody] = await call("/api/users?q=" + encodeURIComponent("<script>alert(1)</script>"), ATT_C);
+check("search dengan input html tetap 200", xssSearch, 200);
+check("search tidak memantulkan input", JSON.stringify(xssBody).includes("<script>"), false);
+
+const ogRes = await fetch(B + "/api/og?name=" + encodeURIComponent("<script>alert(1)</script>"));
+const ogText = await ogRes.text();
+check("preview link tidak menyisipkan script", /<script>alert\(1\)/.test(ogText), false);
+check("preview link membalas html", ogRes.headers.get("content-type")?.includes("text/html") ?? false, true);
+
+const [siteCode, siteBody] = await call("/api/site", null);
+check("guest GET /api/site", siteCode, 200);
+check("site tidak bocorkan osu_id", siteBody.owner ? !("osu_id" in siteBody) : true, true);
+
 // --- 7. cookie dipalsukan
 const [pp, sig] = ADM_C.split(".");
 const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(pp, "base64url").toString()), role: "user" })).toString("base64url") + "." + sig;
