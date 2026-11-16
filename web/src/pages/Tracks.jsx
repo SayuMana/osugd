@@ -17,7 +17,6 @@ const CHOICES = [
 ];
 
 const FIELD = "flex flex-col gap-1 text-xs text-muted";
-const DIFFS = ["easy", "normal", "hard", "insane", "extra", "top diff"];
 const TRACK_ROW = "flex items-center justify-between gap-3 border-b border-line py-2.5";
 const TRACK_MAIN = "flex min-w-0 items-center gap-2.5";
 const TRACK_ACTIONS = "flex shrink-0 items-center gap-2";
@@ -77,7 +76,7 @@ export default function Tracks({ me, owner, user }) {
     status: "accepted",
   });
   const [mode, setMode] = useState("manual");
-  const [rows, setRows] = useState([{ link: "", diff: "insane" }]);
+  const [rows, setRows] = useState([{ link: "", diff: "" }]);
   const [addMsg, setAddMsg] = useState(null);
   const [noteFor, setNoteFor] = useState(null);
   const [noteText, setNoteText] = useState("");
@@ -205,7 +204,7 @@ export default function Tracks({ me, owner, user }) {
 
     setAdding(false);
     setForm({ artist: "", title: "", diff_name: "", link: "", requester_name: "", note: "", status: "accepted" });
-    setRows([{ link: "", diff: "insane" }]);
+    setRows([{ link: "", diff: "" }]);
     load();
   }
 
@@ -561,20 +560,15 @@ export default function Tracks({ me, owner, user }) {
                           placeholder="https://osu.ppy.sh/beatmapsets/..."
                           aria-label={`Beatmap link ${i + 1}`}
                         />
-                        <select
-                          className={inputFit}
+                        <input
+                          className={`${input} sm:w-[190px]`}
                           value={row.diff}
                           onChange={(e) =>
                             setRows((prev) => prev.map((r, j) => (j === i ? { ...r, diff: e.target.value } : r)))
                           }
+                          placeholder="Muzukashii, Salad, or leave empty"
                           aria-label={`Difficulty for link ${i + 1}`}
-                        >
-                          {DIFFS.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
+                        />
                         {rows.length > 1 && (
                           <button
                             type="button"
@@ -590,7 +584,7 @@ export default function Tracks({ me, owner, user }) {
                     <button
                       type="button"
                       className={`${btnGhost} mt-1 self-start`}
-                      onClick={() => setRows((prev) => [...prev, { link: "", diff: "insane" }])}
+                      onClick={() => setRows((prev) => [...prev, { link: "", diff: "" }])}
                     >
                       Add another link
                     </button>
