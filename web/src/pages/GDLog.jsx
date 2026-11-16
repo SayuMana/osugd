@@ -84,18 +84,45 @@ function makeCompare(sortKey, sortDir) {
   };
 }
 
-function groupByMonth(entries, dir, cmp) {
+function groupRows(rows, mode, dir, cmp) {
+  if (mode === "flat") return null;
+
   const buckets = new Map();
-  for (const e of entries) {
-    const label = monthLabel(e);
-    if (!buckets.has(label)) {
-      buckets.set(label, { label, key: e.gd_date ? e.gd_date.slice(0, 7) : "", items: [] });
+  for (const e of rows) {
+    let key;
+    let label;
+    if (mode === "star") {
+      const n = e.star_rating == null ? null : Math.floor(Number(e.star_rating));
+      key = n == null ? "zz" : String(n).padStart(2, "0");
+      label = n == null ? "Unrated" : `${n}★`;
+    } else if (mode === "host") {
+      key = String(e.host_id ?? e.host ?? "unknown");
+      label = e.host || "Unknown mapper";
+    } else {
+      key = e.gd_date ? e.gd_date.slice(0, 7) : "";
+      label = monthLabel(e);
     }
-    buckets.get(label).items.push(e);
+    if (!buckets.has(key)) buckets.set(key, { key, label, items: [] });
+    buckets.get(key).items.push(e);
   }
 
   const groups = [...buckets.values()];
-  groups.sort((a, b) => (dir === "desc" ? (a.key > b.key ? -1 : 1) : a.key > b.key ? 1 : -1));
+  if (mode === "host") {
+    groups.sort(
+      (a, b) =>
+        (dir === "desc" ? -1 : 1) * a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+    );
+  } else if (mode === "star") {
+    groups.sort((a, b) => {
+      if (a.key === "zz") return 1;
+      if (b.key === "zz") return -1;
+      const c = a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      return dir === "desc" ? -c : c;
+    });
+  } else {
+    groups.sort((a, b) => (dir === "desc" ? (a.key > b.key ? -1 : 1) : a.key > b.key ? 1 : -1));
+  }
+
   for (const g of groups) g.items.sort(cmp);
   return groups;
 }
@@ -108,7 +135,7 @@ export default function GDLog({ me, user, owner }) {
   const [sortDir, setSortDir] = useState("asc");
   const [statuses, setStatuses] = useState(STATUSES);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [grouped, setGrouped] = useState(true);
+  const [grouping, setGrouping] = useState("month");
   const [activeMode, setActiveMode] = useState("all");
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -170,6 +197,7 @@ export default function GDLog({ me, user, owner }) {
         if (j.defaults.mode) setActiveMode(j.defaults.mode);
         if (j.defaults.statuses?.length) setStatuses(j.defaults.statuses);
       }
+      if (j.defaults.grouping) setGrouping(j.defaults.grouping);
     }
     if (j.defaults) setDefaults(j.defaults);
   }, [showArchived, user]);
@@ -236,6 +264,8 @@ export default function GDLog({ me, user, owner }) {
     : [];
   const cmp = makeCompare(sortKey, sortDir);
   const rows = [...filtered].sort(cmp);
+  // di mode flat tidak ada grup, jadi tombol urutan membalik tabelnya
+  if (grouping === "flat" && dir === "asc") rows.reverse();
 
   // teks mulai dari asc, angka (star) mulai dari desc
   const defaultDir = (key) => (key === "star" ? "desc" : "asc");
@@ -266,7 +296,7 @@ export default function GDLog({ me, user, owner }) {
     (year ? 1 : 0) +
     (statuses.length !== STATUSES.length ? 1 : 0) +
     (dir !== "desc" ? 1 : 0) +
-    (grouped ? 0 : 1) +
+    (grouping !== (defaults.grouping || "month") ? 1 : 0) +
     (activeMode !== "all" ? 1 : 0) +
     (month ? 1 : 0) +
     (q.trim() ? 1 : 0);
@@ -288,7 +318,7 @@ export default function GDLog({ me, user, owner }) {
     setStatuses(defaults.statuses?.length ? defaults.statuses : STATUSES);
     setDir("desc");
     setShowArchived(false);
-    setGrouped(true);
+    setGrouping(defaults.grouping || "month");
     setActiveMode(defaults.mode || "all");
     setMonth(null);
     setQ("");
@@ -598,38 +628,37 @@ export default function GDLog({ me, user, owner }) {
                 ))}
               </div>
 
-              <div className={filterGroup} role="group" aria-label="Month grouping">
-                <span className={filterLabel}>Month</span>
-                <button
-                  className={grouped ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
-                  aria-pressed={grouped}
-                  onClick={() => setGrouped(true)}
-                >
-                  Grouped
-                </button>
-                <button
-                  className={!grouped ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
-                  aria-pressed={!grouped}
-                  onClick={() => setGrouped(false)}
-                >
-                  Flat
-                </button>
+              <div className={filterGroup} role="group" aria-label="Group by">
+                <span className={filterLabel}>Group by</span>
+                {[
+                  ["flat", "Flat"],
+                  ["month", "Month"],
+                  ["star", "Star"],
+                  ["host", "Host"],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={grouping === key ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
+                    aria-pressed={grouping === key}
+                    onClick={() => setGrouping(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              <div className={filterGroup} role="group" aria-label="Month sort">
-                <span className={filterLabel}>Month sort</span>
+              <div className={filterGroup} role="group" aria-label="Group order">
+                <span className={filterLabel}>Group order</span>
                 <button
-                  className={`${TAB} ${grouped && dir === "desc" ? TAB_ON : TAB_OFF} disabled:cursor-not-allowed disabled:opacity-40`}
+                  className={dir === "desc" ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
                   aria-pressed={dir === "desc"}
-                  disabled={!grouped}
                   onClick={() => setDir("desc")}
                 >
                   Descending
                 </button>
                 <button
-                  className={`${TAB} ${grouped && dir === "asc" ? TAB_ON : TAB_OFF} disabled:cursor-not-allowed disabled:opacity-40`}
+                  className={dir === "asc" ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
                   aria-pressed={dir === "asc"}
-                  disabled={!grouped}
                   onClick={() => setDir("asc")}
                 >
                   Ascending
@@ -856,7 +885,7 @@ export default function GDLog({ me, user, owner }) {
       )}
 
       {rows.length > 0 && (
-        <table className={`gd-table mt-5 w-full border-collapse text-13 ${grouped ? "" : "zebra"}`}>
+        <table className={`gd-table mt-5 w-full border-collapse text-13 ${grouping === "flat" ? "zebra" : ""}`}>
           <thead>
             <tr>
               <th scope="col" className={`${TH} w-10`} aria-sort={ariaSort("mode")}>
@@ -896,7 +925,7 @@ export default function GDLog({ me, user, owner }) {
               )}
             </tr>
           </thead>
-          {(grouped ? groupByMonth(rows, dir, cmp) : [{ label: null, items: rows }]).map((group) => (
+          {(groupRows(rows, grouping, dir, cmp) ?? [{ label: null, items: rows }]).map((group) => (
             <tbody key={group.label ?? "flat"}>
               {group.label && (
                 <tr className="month-row">
@@ -941,6 +970,17 @@ export default function GDLog({ me, user, owner }) {
                           <span className="map-title block">{e.title}</span>
                         )}
                         <span className="map-artist block text-xs text-muted">{e.artist}</span>
+                        {grouping !== "month" && (
+                          <span className="block text-2xs text-muted">
+                            {e.gd_date
+                              ? new Date(`${e.gd_date}T00:00:00`).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "No date"}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>

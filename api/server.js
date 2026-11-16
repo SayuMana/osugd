@@ -27,8 +27,12 @@ const withMode = (s) => (HAS_MODE ? `${s},game_mode` : s);
 
 // preferensi filter default milik owner; dipakai /log dan /summary untuk semua pengunjung
 let HAS_PREFS = false;
+let HAS_GROUPING = false;
 db.from("user_settings").select("default_mode").limit(1).then(({ error }) => {
   HAS_PREFS = !error;
+});
+db.from("user_settings").select("default_grouping").limit(1).then(({ error }) => {
+  HAS_GROUPING = !error;
 });
 const STATUS_KEYS = ["ranked", "loved", "qualified", "pending", "wip", "graveyard"];
 
@@ -36,12 +40,13 @@ async function ownerDefaults(ownerId) {
   if (!HAS_PREFS) return { mode: "all", statuses: [] };
   const { data } = await db
     .from("user_settings")
-    .select("default_mode,default_statuses")
+    .select(HAS_GROUPING ? "default_mode,default_statuses,default_grouping" : "default_mode,default_statuses")
     .eq("owner_id", ownerId)
     .maybeSingle();
   return {
     mode: data?.default_mode || "all",
     statuses: Array.isArray(data?.default_statuses) ? data.default_statuses : [],
+    ...(HAS_GROUPING ? { grouping: data?.default_grouping || "month" } : {}),
   };
 }
 const modeOf = (b) => {
@@ -795,6 +800,8 @@ app.get("/api/settings", async (req, res) => {
   res.json(created);
 });
 
+const GROUPINGS = ["month", "flat", "star", "host"];
+
 const SETTINGS_BOOLS = ["gd_log_public", "gd_track_public", "summary_public", "profile_public", "queue_open", "sync_enabled", "admin_mode"];
 
 app.patch("/api/settings", async (req, res) => {
@@ -812,6 +819,9 @@ app.patch("/api/settings", async (req, res) => {
     patch.max_active = Math.min(10, Math.max(1, Number(req.body.max_active) || 1));
   }
   if (typeof req.body?.rules_md === "string") patch.rules_md = req.body.rules_md.slice(0, 5000);
+  if (HAS_GROUPING && typeof req.body?.default_grouping === "string") {
+    if (GROUPINGS.includes(req.body.default_grouping)) patch.default_grouping = req.body.default_grouping;
+  }
   if (HAS_PREFS) {
     if (typeof req.body?.default_mode === "string") {
       const m = req.body.default_mode;

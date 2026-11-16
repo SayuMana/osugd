@@ -188,6 +188,23 @@ export default function Settings({ me }) {
             </select>
           </label>
 
+          <label className={SETTING}>
+            <span className="flex flex-1 flex-col gap-px">
+              <span className="text-13">Grouping</span>
+              <span className="text-xs text-muted">How the log is grouped when it opens.</span>
+            </span>
+            <select
+              className={inputFit}
+              value={s.default_grouping ?? "month"}
+              onChange={(e) => set("default_grouping", e.target.value)}
+            >
+              <option value="month">Month</option>
+              <option value="flat">Flat</option>
+              <option value="star">Star rating</option>
+              <option value="host">Host</option>
+            </select>
+          </label>
+
           <div className="mt-1">
             <span className="text-13">Statuses on by default</span>
             <div className="mt-2 flex flex-wrap gap-1.5">
