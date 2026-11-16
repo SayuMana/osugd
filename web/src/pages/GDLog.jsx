@@ -50,6 +50,14 @@ const relTime = (iso) => {
   return `${Math.round(s / 86400)}d ago`;
 };
 
+// label urutan menyesuaikan grouping: bulan baru/lama, bintang ringan/berat, host A-Z
+const ORDER_LABELS = {
+  month: ["Newest first", "Oldest first"],
+  flat: ["Newest first", "Oldest first"],
+  star: ["Heaviest first", "Lightest first"],
+  host: ["Z → A", "A → Z"],
+};
+
 const monthLabel = (e) =>
   e.gd_date
     ? new Date(`${e.gd_date}T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
@@ -136,6 +144,7 @@ export default function GDLog({ me, user, owner }) {
   const [statuses, setStatuses] = useState(STATUSES);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [grouping, setGrouping] = useState("month");
+  const [dirTouched, setDirTouched] = useState(false);
   const [activeMode, setActiveMode] = useState("all");
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -319,6 +328,8 @@ export default function GDLog({ me, user, owner }) {
     setDir("desc");
     setShowArchived(false);
     setGrouping(defaults.grouping || "month");
+    setDir("desc");
+    setDirTouched(false);
     setActiveMode(defaults.mode || "all");
     setMonth(null);
     setQ("");
@@ -640,7 +651,11 @@ export default function GDLog({ me, user, owner }) {
                     key={key}
                     className={grouping === key ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
                     aria-pressed={grouping === key}
-                    onClick={() => setGrouping(key)}
+                    onClick={() => {
+                      setGrouping(key);
+                      // belum pernah atur manual: pakai urutan yang wajar buat mode itu
+                      if (!dirTouched) setDir(key === "month" || key === "flat" ? "desc" : "asc");
+                    }}
                   >
                     {label}
                   </button>
@@ -649,20 +664,22 @@ export default function GDLog({ me, user, owner }) {
 
               <div className={filterGroup} role="group" aria-label="Group order">
                 <span className={filterLabel}>Group order</span>
-                <button
-                  className={dir === "desc" ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
-                  aria-pressed={dir === "desc"}
-                  onClick={() => setDir("desc")}
-                >
-                  Descending
-                </button>
-                <button
-                  className={dir === "asc" ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
-                  aria-pressed={dir === "asc"}
-                  onClick={() => setDir("asc")}
-                >
-                  Ascending
-                </button>
+                {[
+                  ["desc", ORDER_LABELS[grouping][0]],
+                  ["asc", ORDER_LABELS[grouping][1]],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    className={dir === value ? `${TAB} ${TAB_ON}` : `${TAB} ${TAB_OFF}`}
+                    aria-pressed={dir === value}
+                    onClick={() => {
+                      setDir(value);
+                      setDirTouched(true);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
               <div className="flex justify-end">
