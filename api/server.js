@@ -256,7 +256,8 @@ const escAttr = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const possessive = (n) => (/[sS]$/.test(n) ? `${n}'` : `${n}'s`);
 
-app.get("/api/og", limit("read"), async (req, res) => {
+// dipakai dua pintu: /api/og?name= dan /u/<nama> (lewat rewrite di vercel.json)
+const ogPage = async (req, res) => {
   let html;
   try {
     html = await indexHtml();
@@ -264,7 +265,7 @@ app.get("/api/og", limit("read"), async (req, res) => {
     return res.redirect(302, "/");
   }
 
-  const raw = String(req.query.name || "").trim().slice(0, 64);
+  const raw = String(req.query.name || req.params.name || "").trim().slice(0, 64);
   let title = "osugd";
   let desc = "A log of guest difficulties: the map each one went on, its status, and its star rating.";
   let name = raw;
@@ -320,7 +321,10 @@ app.get("/api/og", limit("read"), async (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
   res.send(html);
-});
+};
+
+app.get("/api/og", limit("read"), ogPage);
+app.get("/u/:name", limit("read"), ogPage);
 
 app.get("/api/me", async (req, res) => {
   const s = readSession(req);
