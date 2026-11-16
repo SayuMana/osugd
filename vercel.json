@@ -11,6 +11,7 @@
   },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/server" },
+    { "source": "/u/:osuId", "destination": "/api/og?name=:osuId" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [

@@ -28,6 +28,17 @@ const SCRIM = "fixed inset-0 z-40 bg-[rgba(10,6,16,0.6)]";
 const MODAL_HEAD = "mb-3.5 flex items-center justify-between gap-3";
 const MODAL_TITLE = "m-0 text-base font-semibold text-white";
 
+// spektrum resmi osu! (wiki Beatmap/Star_rating): easy, normal, hard, insane, expert, expert+
+const starColor = (v) => {
+  if (v == null) return undefined;
+  if (v < 2) return "#4FC0FF";
+  if (v < 2.7) return "#7CFF4F";
+  if (v < 4) return "#F6F05C";
+  if (v < 5.3) return "#FF4E6F";
+  if (v < 6.5) return "#C645B8";
+  return "#6563DE";
+};
+
 const monthLabel = (e) =>
   e.gd_date
     ? new Date(`${e.gd_date}T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" })
@@ -845,7 +856,7 @@ export default function GDLog({ me, user, owner }) {
                   <td className={`${TD} text-muted`}>
                     {e.host ? (
                       <a
-                        className="text-muted underline decoration-line underline-offset-2 hover:text-accent hover:decoration-accent"
+                        className="whitespace-nowrap text-muted underline decoration-line underline-offset-2 hover:text-accent hover:decoration-accent"
                         href={`https://osu.ppy.sh/users/${encodeURIComponent(e.host)}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -855,7 +866,13 @@ export default function GDLog({ me, user, owner }) {
                     ) : null}
                   </td>
                   <td className={`${TD} text-right font-mono text-xs`}>
-                    {e.star_rating != null ? Number(e.star_rating).toFixed(2) : "n/a"}
+                    {e.star_rating != null ? (
+                      <span style={{ color: starColor(Number(e.star_rating)) }}>
+                        {Number(e.star_rating).toFixed(2)}
+                      </span>
+                    ) : (
+                      "n/a"
+                    )}
                   </td>
                   <td className={TD}>
                     <span className={statusChip(e.map_status)}>{e.map_status}</span>

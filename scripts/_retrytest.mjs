@@ -1,4 +1,4 @@
-import { osuGet } from "./lib/osu.js";
+import { osuGet } from "../api/lib/osu.js";
 
 let calls = 0;
 let queue = [];

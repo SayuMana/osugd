@@ -1,6 +1,6 @@
 // backfill host_id + cache nama mapper. jalankan: node --env-file=.env _backfill_mappers.mjs
-import { db } from "./lib/db.js";
-import { getToken, osuGet, getBeatmapset } from "./lib/osu.js";
+import { db } from "../api/lib/db.js";
+import { getToken, osuGet, getBeatmapset } from "../api/lib/osu.js";
 
 const token = await getToken();
 const { data: rows, error } = await db.from("gd_entries").select("id,host,host_id,beatmapset_id");

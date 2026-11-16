@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { db } from "./lib/db.js";
+import { db } from "../api/lib/db.js";
 
 const B = "http://localhost:3001";
 const ATT = 999999;

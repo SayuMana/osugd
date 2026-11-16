@@ -188,6 +188,100 @@ app.get("/api/auth/callback", async (req, res) => {
   res.redirect(WEB_ORIGIN);
 });
 
+// akun yang dipajang di landing: admin pertama + jumlah GD-nya
+app.get("/api/site", limit("read"), async (req, res) => {
+  const { data: owner } = await db
+    .from("users")
+    .select("osu_id,username")
+    .eq("role", "admin")
+    .order("osu_id")
+    .limit(1)
+    .maybeSingle();
+  if (!owner) return res.json({ owner: null, gds: 0 });
+
+  const { count } = await db
+    .from("gd_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", owner.osu_id)
+    .eq("is_archived", false);
+  res.json({ owner: owner.username, gds: count ?? 0 });
+});
+
+// preview link: /u/<nama> dilayani dengan meta profil, biar Discord/Twitter tidak
+// menampilkan kartu yang sama untuk semua orang
+let indexCache = null;
+async function indexHtml() {
+  if (indexCache) return indexCache;
+  const r = await fetch(`${WEB_ORIGIN}/index.html`);
+  if (!r.ok) throw new Error("index tidak terbaca");
+  indexCache = await r.text();
+  return indexCache;
+}
+
+const escAttr = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const possessive = (n) => (/[sS]$/.test(n) ? `${n}'` : `${n}'s`);
+
+app.get("/api/og", limit("read"), async (req, res) => {
+  let html;
+  try {
+    html = await indexHtml();
+  } catch {
+    return res.redirect(302, "/");
+  }
+
+  const raw = String(req.query.name || "").trim().slice(0, 64);
+  let title = "osugd";
+  let desc = "A log of guest difficulties: the map each one went on, its status, and its star rating.";
+  let name = raw;
+
+  const { data: user } = raw
+    ? await db
+        .from("users")
+        .select("osu_id,username")
+        .ilike("username", raw.replace(/[\\%_]/g, (c) => "\\" + c))
+        .maybeSingle()
+    : { data: null };
+
+  if (user) {
+    name = user.username;
+    const { data: settings } = await db
+      .from("user_settings")
+      .select("profile_public,gd_log_public")
+      .eq("owner_id", user.osu_id)
+      .maybeSingle();
+    // profil atau log privat: jangan bocorkan angkanya ke preview
+    if (settings?.profile_public !== false && settings?.gd_log_public !== false) {
+      const { data: rows } = await db
+        .from("gd_entries")
+        .select("star_rating,host")
+        .eq("owner_id", user.osu_id)
+        .eq("is_archived", false);
+      const n = rows?.length ?? 0;
+      const mappers = new Set((rows || []).map((r) => r.host).filter(Boolean)).size;
+      const avg = n
+        ? (rows.reduce((a, r) => a + (Number(r.star_rating) || 0), 0) / n).toFixed(2)
+        : "n/a";
+      title = `${possessive(user.username)} guest difficulties · osugd`;
+      desc = `${n} GDs · ${mappers} mappers · ${avg}★ average`;
+    }
+  }
+
+  const t = escAttr(title);
+  const d = escAttr(desc);
+  html = html
+    .replace(/<title>[^<]*<\/title>/, `<title>${t}</title>`)
+    .replace(/(property="og:title"\s+content=")[^"]*/, `$1${t}`)
+    .replace(/(property="og:description"\s+content=")[^"]*/, `$1${d}`)
+    .replace(/(name="twitter:title"\s+content=")[^"]*/, `$1${t}`)
+    .replace(/(name="twitter:description"\s+content=")[^"]*/, `$1${d}`)
+    .replace(/(property="og:url"\s+content=")[^"]*/, `$1${WEB_ORIGIN}/u/${encodeURIComponent(name)}`);
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=86400");
+  res.send(html);
+});
+
 app.get("/api/me", async (req, res) => {
   const s = readSession(req);
   if (!s) return res.json(null);
@@ -201,10 +295,17 @@ app.get("/api/me", async (req, res) => {
   res.json({ ...s, admin_mode: data?.admin_mode === true });
 });
 
+// role di cookie berlaku 30 hari; cek ulang ke database biar cabut admin langsung ngefek
+async function isAdmin(s) {
+  if (!s || s.role !== "admin") return false;
+  const { data } = await db.from("users").select("role").eq("osu_id", s.osu_id).maybeSingle();
+  return data?.role === "admin";
+}
+
 // data siapa yang disentuh: diri sendiri, atau user lain kalau admin mode nyala
 async function actorId(req, s) {
   const q = String(req.query.user || "").trim();
-  if (!q || s?.role !== "admin") return s.osu_id;
+  if (!q || !(await isAdmin(s))) return s.osu_id;
 
   const { data: set } = await db
     .from("user_settings")
@@ -237,11 +338,11 @@ async function resolveOwner(req) {
       ? await base.eq("osu_id", Number(q)).maybeSingle()
       : await base.ilike("username", q.replace(/[\\%_]/g, (c) => "\\" + c)).maybeSingle();
     if (!u) return { error: "notfound" };
-    return { s, owner: u, isSelf: s?.osu_id === u.osu_id };
+    return { s, owner: u, isSelf: s?.osu_id === u.osu_id, admin: await isAdmin(s) };
   }
 
   if (!s) return { error: "auth" };
-  return { s, owner: { osu_id: s.osu_id, username: s.username, role: s.role }, isSelf: true };
+  return { s, owner: { osu_id: s.osu_id, username: s.username, role: s.role }, isSelf: true, admin: await isAdmin(s) };
 }
 
 app.get("/api/gd", limit("read"), async (req, res) => {
@@ -251,7 +352,7 @@ app.get("/api/gd", limit("read"), async (req, res) => {
 
   const { s, owner, isSelf } = r;
   const ownerId = owner.osu_id;
-  const privileged = isSelf || s?.role === "admin";
+  const privileged = isSelf || r.admin === true;
 
   const { data: settings } = await db
     .from("user_settings")
@@ -289,7 +390,7 @@ app.get("/api/users/:osuId", limit("read"), async (req, res) => {
 
   const id = user.osu_id;
   const isSelf = s?.osu_id === id;
-  const privileged = isSelf || s?.role === "admin";
+  const privileged = isSelf || (await isAdmin(s));
   const PAGE = 20;
   const page = Math.max(0, Number(req.query.page) || 0);
 
@@ -356,7 +457,7 @@ app.get("/api/summary", limit("read"), async (req, res) => {
 
   const { s, owner, isSelf } = r;
   const ownerId = owner.osu_id;
-  const privileged = isSelf || s?.role === "admin";
+  const privileged = isSelf || r.admin === true;
 
   const { data: settings } = await db
     .from("user_settings")
@@ -744,7 +845,7 @@ app.get("/api/requests", limit("read"), async (req, res) => {
 
   const { s, owner, isSelf } = r;
   const ownerId = owner.osu_id;
-  const privileged = isSelf || s?.role === "admin";
+  const privileged = isSelf || r.admin === true;
 
   const { data: list, error } = await db
     .from("requests")
@@ -780,7 +881,7 @@ app.get("/api/requests", limit("read"), async (req, res) => {
   }
 
   let archived = [];
-  if (s?.role === "admin") {
+  if (await isAdmin(s)) {
     const { data } = await db
       .from("requests")
       .select("id,requester_id,beatmapset_id,artist,title,requested_diff,note,archived_reason,archived_at")
@@ -1005,7 +1106,7 @@ app.get("/api/tracks", limit("read"), async (req, res) => {
 
   const { s, owner, isSelf } = r;
   const ownerId = owner.osu_id;
-  const privileged = isSelf || s?.role === "admin";
+  const privileged = isSelf || r.admin === true;
 
   const { data: settings } = await db
     .from("user_settings")

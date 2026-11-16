@@ -1,6 +1,6 @@
 // isi kolom mode untuk data lama. jalankan: node --env-file=.env _backfill_mode.mjs
-import { db } from "./lib/db.js";
-import { getToken, getBeatmapset } from "./lib/osu.js";
+import { db } from "../api/lib/db.js";
+import { getToken, getBeatmapset } from "../api/lib/osu.js";
 
 const token = await getToken();
 

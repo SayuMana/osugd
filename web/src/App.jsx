@@ -40,19 +40,30 @@ const TITLES = {
 
 function titleFor(pathname, me) {
   if (pathname === "/") return me ? "Dashboard" : "Home";
-  if (pathname.startsWith("/u/")) return "Profile";
+  if (pathname.startsWith("/u/")) {
+    const page = pathname.split("/")[3];
+    if (page === "log") return "Guest difficulties";
+    if (page === "summary") return "Summary";
+    if (page === "track") return "GD track";
+    return "Profile";
+  }
   return TITLES[pathname] ?? "Not found";
 }
 
-// halaman kerja butuh login; tamu dikembalikan ke landing
-function Guard({ me, children }) {
+// halaman kerja butuh login; tamu diarahkan ke halaman publik pemilik situs
+function Guard({ me, site, page, children }) {
   if (me === undefined) return null;
-  if (me === null) return <Navigate to="/" replace />;
+  if (me === null) {
+    if (site === undefined) return null;
+    const to = site?.owner && page ? `/u/${encodeURIComponent(site.owner)}/${page}` : "/";
+    return <Navigate to={to} replace />;
+  }
   return children;
 }
 
 export default function App() {
   const [me, setMe] = useState(undefined);
+  const [site, setSite] = useState(undefined);
   const [menu, setMenu] = useState(false);
   const location = useLocation();
   const visibleLinks = REQUESTS_ON ? baseLinks : baseLinks.filter(([to]) => to !== "/requests");
@@ -65,6 +76,19 @@ export default function App() {
       .then(setMe)
       .catch(() => setMe(null));
   }, []);
+
+  // tamu: tahu dulu akun mana yang dipajang, buat tujuan redirect halaman kerja
+  useEffect(() => {
+    if (me !== null) return;
+    let alive = true;
+    fetch("/api/site")
+      .then((r) => r.json())
+      .then((j) => alive && setSite(j || {}))
+      .catch(() => alive && setSite({}));
+    return () => {
+      alive = false;
+    };
+  }, [me]);
 
   useEffect(() => {
     setMenu(false);
@@ -240,7 +264,7 @@ export default function App() {
 
       {me === null && location.pathname !== "/" && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel2 px-4 py-2.5 text-13 text-muted md:px-6">
-          <span>Log in with osu! to request a GD or manage your own log.</span>
+          <span>Log in with osu! to keep your own GD log and track board.</span>
           <a className={BTN} href="/api/auth/login">
             Log in with osu!
           </a>
@@ -249,10 +273,10 @@ export default function App() {
 
       <main className="mx-auto w-full max-w-[1100px] flex-1 px-4 pt-5 pb-14 md:px-6 md:pt-[22px] md:pb-16">
         <Routes>
-          <Route path="/" element={me ? <Dashboard me={me} /> : <Landing />} />
-          <Route path="/log" element={<Guard me={me}><GDLog me={me} /></Guard>} />
-          <Route path="/summary" element={<Guard me={me}><Summary me={me} /></Guard>} />
-          <Route path="/track" element={<Guard me={me}><Tracks me={me} /></Guard>} />
+          <Route path="/" element={me ? <Dashboard me={me} /> : <Landing site={site} />} />
+          <Route path="/log" element={<Guard me={me} site={site} page="log"><GDLog me={me} /></Guard>} />
+          <Route path="/summary" element={<Guard me={me} site={site} page="summary"><Summary me={me} /></Guard>} />
+          <Route path="/track" element={<Guard me={me} site={site} page="track"><Tracks me={me} /></Guard>} />
           <Route
             path="/requests"
             element={REQUESTS_ON ? <Requests me={me} /> : <NotFound />}
@@ -261,7 +285,7 @@ export default function App() {
             path="/requestform"
             element={REQUESTS_ON ? <Request me={me} /> : <NotFound />}
           />
-          <Route path="/settings" element={<Guard me={me}><Settings me={me} /></Guard>} />
+          <Route path="/settings" element={<Guard me={me} site={site}><Settings me={me} /></Guard>} />
           <Route path="/u/:osuId" element={<Profile me={me} />} />
           <Route path="/u/:osuId/summary" element={<ProfilePage page="summary" me={me} />} />
           <Route path="/u/:osuId/log" element={<ProfilePage page="log" me={me} />} />
