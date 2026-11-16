@@ -1,0 +1,35 @@
+1. Grouping bynya, mungkin tambah kolom month year di log 
+2. Sync button taro di log juga
+3. Design (malas) //skip ini 
+4. Gd track tambah delete button
+5. Ui mobile somehow nama mapper ilang di log
+6. fix conditional if nickname only number, id remain url
+7. Fitur Search player di sebelah kiri profile navbar
+8. note pribadi di log mungkin 
+
+dari Nakazawa (thanks claude) :
+Gw udah liat-liat osugd, log publiknya rapi dan enak dibuka di HP. Ada beberapa masukan nih:
+
+**Buat pengunjung**
+1. Homepage pas belum login cuma ada judul + tombol login. Profil publik (`/u/SayuMana`, 99 GD, stats, recent maps) gak di-link dari mana-mana, jadi orang baru gak bakal nemu. Mending `Landing.jsx` langsung nampilin profil/stats owner, minimal kasih tombol "View the log".
+2. `/log`, `/summary`, `/track` pas belum login malah balik ke homepage. Redirect aja ke `/u/<owner>/log` dst biar link yang di-share tetep jalan.
+3. Banner bilang "Log in to request a GD or manage your own log", kesannya semua orang bisa punya log sendiri. Padahal di README cuma owner yang bisa nulis. Mending dijelasin login dapet apa.
+
+**Polish**
+4. `titleFor()` di `App.jsx` ngasih "Profile" buat semua route `/u/`, jadi tab `/u/SayuMana/log` judulnya "osugd | Profile".
+5. Star rating (GDLog.jsx ~line 779) bisa dikasih warna ala spektrum osu! biar gampang di-scan.
+6. `ModeIcon.jsx` belum ada width/height, kolom Mode kosong dulu sebelum icon ke-load. Tambahin `width="16" height="16"`.
+7. Nama host ke-wrap ("Mahiru / Shiina") padahal kolom Map masih lega. Kasih `whitespace-nowrap`.
+8. Semua link preview (Discord/Twitter) sama karena SPA. Kalau `/u/:id` lewat function kecil yang inject meta + OG image (nama, jumlah GD), preview profil jadi jauh lebih bagus.
+
+**Backend (gak urgent)**
+9. Rate limit di `server.js` pakai Map in-memory. Di Vercel tiap instance punya sendiri dan reset tiap cold start, jadi hampir gak ngefek. Bisa pakai Upstash / Vercel KV / tabel Supabase.
+10. Role admin disimpen di cookie 30 hari. Kalau ada yang dihapus dari `ADMIN_OSU_IDS`, aksesnya masih jalan sampai cookie expired. Cek ulang role pas endpoint write.
+11. `Number(process.env.OWNER_OSU_ID)` diulang ~10x padahal `OWNER_ID` udah ada di line 187. Script `_backfill_*.mjs` sama `_retrytest.mjs` bisa dipindah ke folder `scripts/`.
+
+**Ide fitur kecil**
+- Search di log (map, artist, host)
+- Tampilin kapan terakhir sync status map
+- "+1 this month" bisa diklik ke log yang udah di-filter
+
+Btw basic security-nya udah bagus: OAuth state dicek, secret dibandingin pakai constant-time, cron mati kalau gak ada secret, note pribadi gak kekirim ke pengunjung. Nice!
