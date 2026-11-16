@@ -1307,6 +1307,8 @@ app.delete("/api/tracks/:id", async (req, res) => {
     .select("id");
   if (error) return dbFail(res, error);
   if (!data?.length) return res.status(404).json({ error: "Track not found." });
+  // jejak di log server: siapa menghapus track mana
+  console.log(`track delete: id=${id} by=${s.username}(${ownerId})`);
   res.json({ ok: true });
 });
 
