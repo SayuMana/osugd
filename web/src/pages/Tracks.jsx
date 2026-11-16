@@ -16,6 +16,9 @@ const CHOICES = [
   ["dropped", "dropped"],
 ];
 
+// saat menambah, "dropped" tidak masuk akal: kamu baru mau mulai
+const ADD_CHOICES = CHOICES.filter(([v]) => v !== "dropped");
+
 const FIELD = "flex flex-col gap-1 text-xs text-muted";
 const TRACK_ROW = "flex items-center justify-between gap-3 border-b border-line py-2.5";
 const TRACK_MAIN = "flex min-w-0 items-center gap-2.5";
@@ -598,7 +601,7 @@ export default function Tracks({ me, owner, user }) {
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                 >
-                  {CHOICES.map(([v, l]) => (
+                  {ADD_CHOICES.map(([v, l]) => (
                     <option key={v} value={v}>
                       {l}
                     </option>
