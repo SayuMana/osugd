@@ -65,8 +65,8 @@ const LIMITS = {
   osu: { max: 20, window: 60_000 },
 };
 const hits = new Map();
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const HAS_REDIS = Boolean(REDIS_URL && REDIS_TOKEN);
 
 // satu round trip: naikkan counter, pasang expiry kalau belum ada
