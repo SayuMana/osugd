@@ -58,32 +58,61 @@ app.use(express.json());
 // di belakang proxy host (Render/Vercel) supaya req.ip bukan IP proxy
 app.set("trust proxy", 1);
 
-// rate limit in-memory per IP; cukup untuk satu proses, tidak perlu dependency
+// rate limit per IP. Kalau UPSTASH_REDIS_REST_* diisi, counter-nya global
+// (Vercel bikin banyak instance, Map in-memory cuma berlaku per proses)
 const LIMITS = {
   read: { max: 120, window: 60_000 },
   osu: { max: 20, window: 60_000 },
 };
 const hits = new Map();
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const HAS_REDIS = Boolean(REDIS_URL && REDIS_TOKEN);
+
+// satu round trip: naikkan counter, pasang expiry kalau belum ada
+async function bumpRedis(key, window) {
+  const r = await fetch(`${REDIS_URL}/pipeline`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${REDIS_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify([
+      ["INCR", key],
+      ["EXPIRE", key, Math.ceil(window / 1000), "NX"],
+    ]),
+  });
+  if (!r.ok) throw new Error(`redis ${r.status}`);
+  const j = await r.json();
+  return Number(j?.[0]?.result ?? 0);
+}
+
+function bumpMemory(key, window) {
+  const now = Date.now();
+  const rec = hits.get(key);
+  if (!rec || now > rec.resetAt) {
+    if (hits.size > 5000) for (const [k, v] of hits) if (now > v.resetAt) hits.delete(k);
+    hits.set(key, { n: 1, resetAt: now + window });
+    return 1;
+  }
+  rec.n += 1;
+  return rec.n;
+}
 
 function limit(bucket) {
   const { max, window } = LIMITS[bucket];
-  return (req, res, next) => {
+  return async (req, res, next) => {
     // owner tidak dibatasi, biar import dan refresh sendiri tidak kena
     if (readSession(req)?.role === "admin") return next();
 
     const key = `${bucket}:${req.ip}`;
-    const now = Date.now();
-    const rec = hits.get(key);
-
-    if (!rec || now > rec.resetAt) {
-      if (hits.size > 5000) for (const [k, v] of hits) if (now > v.resetAt) hits.delete(k);
-      hits.set(key, { n: 1, resetAt: now + window });
+    let n;
+    try {
+      n = HAS_REDIS ? await bumpRedis(`rl:${key}`, window) : bumpMemory(key, window);
+    } catch {
+      // store sedang bermasalah: lebih baik melayani daripada memblokir semua orang
       return next();
     }
 
-    rec.n += 1;
-    if (rec.n > max) {
-      res.setHeader("Retry-After", String(Math.ceil((rec.resetAt - now) / 1000)));
+    if (n > max) {
+      res.setHeader("Retry-After", String(Math.ceil(window / 1000)));
       return res.status(429).json({ error: "Too many requests. Try again in a moment." });
     }
     next();
@@ -394,12 +423,22 @@ app.get("/api/users", limit("read"), async (req, res) => {
   const q = String(req.query.q || "").trim().slice(0, 40);
   if (q.length < 2) return res.json({ users: [] });
 
-  const { data } = await db
+  // yang menyembunyikan profil tidak boleh muncul di daftar pencarian
+  const { data: hidden } = await db
+    .from("user_settings")
+    .select("owner_id")
+    .eq("profile_public", false);
+  const hiddenIds = (hidden || []).map((r) => r.owner_id);
+
+  let query = db
     .from("users")
     .select("osu_id,username,avatar_url")
     .ilike("username", `%${q.replace(/[\\%_]/g, (c) => "\\" + c)}%`)
     .order("username")
     .limit(8);
+  if (hiddenIds.length) query = query.not("osu_id", "in", `(${hiddenIds.join(",")})`);
+
+  const { data } = await query;
   res.json({ users: data || [] });
 });
 
