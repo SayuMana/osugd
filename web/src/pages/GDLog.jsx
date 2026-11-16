@@ -181,7 +181,7 @@ export default function GDLog({ me, user, owner }) {
       setResumeAt(null);
       setProgress({ done: startOffset, total: 0 });
       try {
-        await runImportChunks({
+        const out = await runImportChunks({
           startOffset,
           onProgress: (p) => {
             setProgress(p);
@@ -189,11 +189,17 @@ export default function GDLog({ me, user, owner }) {
           },
           shouldStop: () => cancelled.current,
         });
+        setSyncMsg(
+          out.added
+            ? `Imported ${out.added} ${out.added === 1 ? "GD" : "GDs"} from osu!.`
+            : "Nothing new to import, your log is already up to date."
+        );
       } catch (e) {
         setError(e.message);
         setResumeAt(e.nextOffset ?? startOffset);
       }
       setProgress(null);
+      load();
     },
     [load]
   );
@@ -431,6 +437,10 @@ export default function GDLog({ me, user, owner }) {
         </div>
       )}
 
+      <Status as="p" className={`${muted} mt-1`}>
+        {syncMsg}
+      </Status>
+
       {years.length > 0 && (
         <div className="mt-4 flex w-full flex-col gap-2.5">
           <div className="flex w-full flex-wrap items-center gap-2">
@@ -488,10 +498,6 @@ export default function GDLog({ me, user, owner }) {
               placeholder="Search map, artist, host"
             />
           </div>
-
-          <Status as="p" className={`${muted} mt-1`}>
-            {syncMsg}
-          </Status>
 
           {filtersOpen && (
             <div className="flex w-full flex-col gap-2 rounded-lg border border-line bg-panel p-3" id="filter-panel">
@@ -768,9 +774,9 @@ export default function GDLog({ me, user, owner }) {
       {progress && (
         <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-line bg-panel px-4 py-3.5">
           <div className="min-w-0 flex-1">
-            <p className="m-0 mb-1.5 text-13 font-medium">
-              Importing your GD list from osu! {progress.done}
-              {progress.total ? ` / ${progress.total}` : ""} sets
+            <p className="m-0 mb-1 text-13 font-medium">Pulling your guest difficulties from osu!</p>
+            <p className="m-0 mb-2 text-xs text-muted">
+              Ranked maps come along too. First run takes a minute.
             </p>
             <div
               className="h-[3px] overflow-hidden rounded-[2px] bg-panel2"
@@ -778,9 +784,14 @@ export default function GDLog({ me, user, owner }) {
               aria-valuenow={pct}
               aria-valuemin="0"
               aria-valuemax="100"
+              aria-label={`Importing ${progress.done} of ${progress.total || "?"} sets`}
             >
               <div className="h-full bg-accent transition-[width] duration-150" style={{ width: `${pct}%` }} />
             </div>
+            <p className="m-0 mt-1.5 font-mono text-2xs text-muted">
+              {progress.done}
+              {progress.total ? ` / ${progress.total}` : ""} sets
+            </p>
           </div>
           <button className={btnGhost} onClick={() => (cancelled.current = true)}>
             Cancel
@@ -804,15 +815,18 @@ export default function GDLog({ me, user, owner }) {
 
       {!isPrivate(error) && entries !== null && entries.length === 0 && !progress && (
         <div className={empty}>
-          <p className={emptyTitle}>No entries yet</p>
+          <p className={emptyTitle}>{me ? "Your log is empty" : "No entries yet"}</p>
           <p className={muted}>
             {me
-              ? "Nothing has been imported or added by hand."
+              ? "osugd can pull every beatmap you're credited on from osu!, ranked maps included. Start there, then add anything missing by hand."
               : "Nothing in this log is public."}
           </p>
           {me && (
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <button className={btn} onClick={() => setAddOpen(true)}>
+              <button className={btn} onClick={() => runImport(0)}>
+                Import my GDs from osu!
+              </button>
+              <button className={btnGhost} onClick={() => setAddOpen(true)}>
                 Add GD to log
               </button>
             </div>

@@ -291,6 +291,19 @@ export default function Dashboard({ me }) {
         </Link>
       </div>
 
+      {stats.total === 0 && (
+        <section className={`${panel} mt-4`}>
+          <h2 className={panelH2}>Your log is empty</h2>
+          <p className={muted}>
+            osugd pulls every beatmap you are credited on from osu!, ranked maps included. That is the
+            fastest way to start: one import and your whole GD history lands here.
+          </p>
+          <Link className={`${btn} mt-3 inline-flex`} to="/log">
+            Import my GDs from osu!
+          </Link>
+        </section>
+      )}
+
       <div className="mt-4 grid grid-cols-2 items-stretch gap-4 max-[900px]:grid-cols-1">
         <section className={`${panel} flex flex-col`}>
           <h2 className={panelH2}>On the board</h2>
